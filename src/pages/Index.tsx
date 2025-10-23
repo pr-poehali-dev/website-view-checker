@@ -18,10 +18,24 @@ type Message = {
   timestamp: string;
 };
 
+const STANDARD_AVATARS = ['👤', '🐱', '🐶', '🦊', '🐼', '🦁', '🐯', '🐸'];
+const BACKGROUND_COLORS = [
+  { name: 'GRAY', value: '#2D2D2D' },
+  { name: 'RED', value: '#633946' },
+  { name: 'BLUE', value: '#1e3a8a' },
+  { name: 'GREEN', value: '#166534' },
+  { name: 'PURPLE', value: '#581c87' },
+  { name: 'ORANGE', value: '#9a3412' },
+];
+
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'lobby' | 'room'>('lobby');
+  const [currentView, setCurrentView] = useState<'login' | 'lobby' | 'room'>('login');
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
-  const [username, setUsername] = useState('Guest' + Math.floor(Math.random() * 1000));
+  const [username, setUsername] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState('');
+  const [customAvatar, setCustomAvatar] = useState('');
+  const [selectedBgColor, setSelectedBgColor] = useState('');
+  const [useCustomAvatar, setUseCustomAvatar] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
     { id: '1', name: 'Lounge', participants: 5 },
     { id: '2', name: 'Tech Talk', participants: 12 },
@@ -69,9 +83,123 @@ const Index = () => {
     }
   };
 
+  const handleLogin = () => {
+    if (username.trim()) {
+      const finalAvatar = useCustomAvatar && customAvatar ? customAvatar : (selectedAvatar || STANDARD_AVATARS[0]);
+      const finalBgColor = selectedBgColor || BACKGROUND_COLORS[0].value;
+      setSelectedAvatar(finalAvatar);
+      setSelectedBgColor(finalBgColor);
+      setCurrentView('lobby');
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCustomAvatar(event.target?.result as string);
+        setUseCustomAvatar(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4 font-['Press_Start_2P']">
-      {currentView === 'lobby' ? (
+      {currentView === 'login' ? (
+        <div className="max-w-xl mx-auto mt-12">
+          <Card className="border-4 border-foreground">
+            <CardContent className="p-8 space-y-6">
+              <div className="text-center border-4 border-foreground p-8 bg-card">
+                <h1 className="text-4xl tracking-wider">ТЕСТ</h1>
+              </div>
+
+              <div>
+                <p className="text-xs mb-3">ВЫБЕРИТЕ АВАТАР:</p>
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {STANDARD_AVATARS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        setSelectedAvatar(emoji);
+                        setUseCustomAvatar(false);
+                      }}
+                      className={`border-2 p-4 text-3xl transition-colors ${
+                        selectedAvatar === emoji && !useCustomAvatar
+                          ? 'border-primary bg-primary/20'
+                          : 'border-foreground bg-card hover:bg-muted'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs mb-3">ИЛИ ЗАГРУЗИТЕ СВОЮ:</p>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <label
+                    htmlFor="avatar-upload"
+                    className="flex-1 border-2 border-foreground bg-card hover:bg-muted p-3 text-xs cursor-pointer text-center transition-colors"
+                  >
+                    {useCustomAvatar && customAvatar ? 'ЗАГРУЖЕНО ✓' : 'ВЫБРАТЬ ФАЙЛ'}
+                  </label>
+                  {useCustomAvatar && customAvatar && (
+                    <div className="border-2 border-foreground w-16 h-16 flex items-center justify-center bg-card">
+                      <img src={customAvatar} alt="avatar" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs mb-3">НИКНЕЙМ:</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="ВВЕДИТЕ ИМЯ"
+                    className="border-2 border-foreground text-xs flex-1"
+                    maxLength={20}
+                  />
+                  <div className="relative">
+                    <select
+                      value={selectedBgColor}
+                      onChange={(e) => setSelectedBgColor(e.target.value)}
+                      className="border-2 border-foreground bg-card text-foreground p-2 text-xs appearance-none cursor-pointer h-full"
+                      style={{ width: '120px' }}
+                    >
+                      <option value="">ЦВЕТ</option>
+                      {BACKGROUND_COLORS.map((color) => (
+                        <option key={color.value} value={color.value}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleLogin}
+                disabled={!username.trim()}
+                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+              >
+                ВОЙТИ
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : currentView === 'lobby' ? (
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="border-4 border-foreground p-4 bg-card">
             <h1 className="text-2xl mb-4">CHAT ROOMS</h1>
