@@ -502,6 +502,20 @@ const Index = () => {
           {/* LEFT SIDEBAR - PROFILE */}
           <div className="w-64 border-r-4 border-foreground p-6 bg-black">
             <div className="space-y-4">
+              {/* LOGO */}
+              {!isAuthenticated && (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full hover:opacity-70 transition-opacity mb-4"
+                >
+                  <img 
+                    src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
+                    alt="URBAN GROVE" 
+                    className="w-full h-auto"
+                  />
+                </button>
+              )}
+              
               <div className="text-center">
                 <div className="w-24 h-24 mx-auto mb-3 border-2 border-foreground">
                   <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
@@ -992,6 +1006,20 @@ const Index = () => {
           <div className="w-64 border-r-4 border-foreground flex flex-col bg-black">
             {/* PROFILE */}
             <div className="p-6 border-b-4 border-foreground">
+              {/* LOGO */}
+              {!isAuthenticated && (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full hover:opacity-70 transition-opacity mb-4"
+                >
+                  <img 
+                    src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
+                    alt="URBAN GROVE" 
+                    className="w-full h-auto"
+                  />
+                </button>
+              )}
+              
               <div className="text-center space-y-3">
                 <div className="w-20 h-20 mx-auto border-2 border-foreground">
                   <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
