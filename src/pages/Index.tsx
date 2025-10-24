@@ -543,16 +543,6 @@ const Index = () => {
                 )}
               </div>
 
-              {!isAuthenticated && (
-                <Button
-                  onClick={() => setIsAdmin(!isAdmin)}
-                  variant={isAdmin ? "default" : "outline"}
-                  className="w-full border-2 border-foreground text-xs"
-                >
-                  {isAdmin ? '👑 АДМИН РЕЖИМ' : 'СТАТЬ АДМИНОМ'}
-                </Button>
-              )}
-
               {isAdmin && (
                 <>
                   <Button
