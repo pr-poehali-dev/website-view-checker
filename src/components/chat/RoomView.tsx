@@ -89,8 +89,8 @@ export const RoomView = ({
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <div className="border-b-4 border-foreground p-4 bg-black">
+      <div className="flex-1 flex flex-col h-screen">
+        <div className="border-b-4 border-foreground p-4 bg-black flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               {editingRoomName ? (
@@ -266,7 +266,7 @@ export const RoomView = ({
         </div>
         </ScrollArea>
 
-        <div className="border-t-4 border-foreground p-4 bg-black">
+        <div className="border-t-4 border-foreground p-4 bg-black flex-shrink-0">
           <div className="max-w-4xl mx-auto space-y-2">
             {replyingTo && (
               <div className="flex items-center justify-between p-2 border-2 border-foreground bg-card text-xs">
