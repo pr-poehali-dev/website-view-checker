@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 
 type RoomTheme = 'general' | 'tech' | 'gaming' | 'music' | 'art' | 'sports';
+type RoomBadge = 'adult' | 'music' | 'video' | 'none';
 
 type RoomParticipant = {
   username: string;
@@ -16,6 +17,7 @@ type Room = {
   id: string;
   name: string;
   theme: RoomTheme;
+  badge?: RoomBadge;
   currentParticipants: number;
   maxParticipants: number;
   participants: RoomParticipant[];
@@ -64,6 +66,13 @@ const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
   music: 'МУЗЫКА',
   art: 'ИСКУССТВО',
   sports: 'СПОРТ',
+};
+
+const ROOM_BADGES: Record<RoomBadge, { icon: string; label: string }> = {
+  none: { icon: '', label: 'БЕЗ ЗНАЧКА' },
+  adult: { icon: '18+', label: '18+' },
+  music: { icon: '🎵', label: 'МУЗЫКА' },
+  video: { icon: '🎬', label: 'ВИДЕО' },
 };
 
 const Index = () => {
@@ -128,6 +137,7 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomTheme, setNewRoomTheme] = useState<RoomTheme>('general');
+  const [newRoomBadge, setNewRoomBadge] = useState<RoomBadge>('none');
   const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(10);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -148,6 +158,7 @@ const Index = () => {
         id: Date.now().toString(),
         name: newRoomName,
         theme: newRoomTheme,
+        badge: newRoomBadge !== 'none' ? newRoomBadge : undefined,
         currentParticipants: 1,
         maxParticipants: newRoomMaxParticipants,
         participants: [
@@ -157,6 +168,7 @@ const Index = () => {
       setRooms([...rooms, newRoom]);
       setNewRoomName('');
       setNewRoomTheme('general');
+      setNewRoomBadge('none');
       setNewRoomMaxParticipants(10);
       setShowCreateRoom(false);
       joinRoom(newRoom);
@@ -342,13 +354,18 @@ const Index = () => {
                           style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
                         />
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <div 
                               className="px-3 py-1 text-xs border-2 border-foreground"
                               style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
                             >
                               {ROOM_THEME_NAMES[room.theme]}
                             </div>
+                            {room.badge && (
+                              <div className="px-2 py-1 text-sm border-2 border-foreground bg-card">
+                                {ROOM_BADGES[room.badge].icon}
+                              </div>
+                            )}
                             <h3 className="text-lg font-bold">{room.name}</h3>
                           </div>
                           <p className="text-sm text-muted-foreground">
@@ -450,6 +467,30 @@ const Index = () => {
                   </div>
 
                   <div>
+                    <p className="text-xs mb-2">ЗНАЧОК:</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(Object.keys(ROOM_BADGES) as RoomBadge[]).map((badge) => (
+                        <button
+                          key={badge}
+                          onClick={() => setNewRoomBadge(badge)}
+                          className={`p-3 text-sm border-2 transition-all ${
+                            newRoomBadge === badge
+                              ? 'border-primary bg-primary/20'
+                              : 'border-foreground bg-card hover:bg-muted'
+                          }`}
+                        >
+                          <div className="text-center">
+                            {ROOM_BADGES[badge].icon && (
+                              <div className="text-lg mb-1">{ROOM_BADGES[badge].icon}</div>
+                            )}
+                            <div className="text-xs">{ROOM_BADGES[badge].label}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
                     <p className="text-xs mb-2">МАКС. УЧАСТНИКОВ:</p>
                     <div className="flex items-center gap-2">
                       <Button
@@ -518,7 +559,12 @@ const Index = () => {
                         style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
                       />
                       <div className="flex-1">
-                        <h4 className="text-xs font-bold">{room.name}</h4>
+                        <div className="flex items-center gap-1">
+                          <h4 className="text-xs font-bold">{room.name}</h4>
+                          {room.badge && (
+                            <span className="text-xs">{ROOM_BADGES[room.badge].icon}</span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {room.currentParticipants}/{room.maxParticipants}
                         </p>
@@ -550,7 +596,12 @@ const Index = () => {
                   style={{ backgroundColor: ROOM_THEME_COLORS[currentRoom?.theme || 'general'] }}
                 />
                 <div>
-                  <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                    {currentRoom?.badge && (
+                      <span className="text-lg">{ROOM_BADGES[currentRoom.badge].icon}</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {currentRoom?.currentParticipants}/{currentRoom?.maxParticipants} участников
                   </p>
