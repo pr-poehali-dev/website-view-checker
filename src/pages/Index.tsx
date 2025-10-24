@@ -24,8 +24,12 @@ type Room = {
 type Message = {
   id: string;
   user: string;
+  avatar: string;
+  bgColor: string;
   text: string;
   timestamp: string;
+  isReply?: boolean;
+  replyTo?: string;
 };
 
 const STANDARD_AVATARS = [
@@ -123,13 +127,21 @@ const Index = () => {
     },
   ]);
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', user: 'Admin', text: 'Welcome to the room!', timestamp: '12:00' },
+    { 
+      id: '1', 
+      user: 'Admin', 
+      avatar: STANDARD_AVATARS[0],
+      bgColor: '#2D2D2D',
+      text: 'Добро пожаловать в комнату!', 
+      timestamp: '12:00' 
+    },
   ]);
   const [newMessage, setNewMessage] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomTheme, setNewRoomTheme] = useState<RoomTheme>('general');
   const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(10);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const joinRoom = (room: Room) => {
     setCurrentRoom(room);
@@ -167,11 +179,16 @@ const Index = () => {
       const message: Message = {
         id: Date.now().toString(),
         user: username,
+        avatar: selectedAvatar,
+        bgColor: selectedBgColor,
         text: newMessage,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        isReply: !!replyingTo,
+        replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
       };
       setMessages([...messages, message]);
       setNewMessage('');
+      setReplyingTo(null);
     }
   };
 
@@ -479,55 +496,108 @@ const Index = () => {
           )}
         </div>
       ) : (
-        <div className="max-w-4xl mx-auto space-y-4">
-          <div className="border-4 border-foreground p-4 bg-card flex justify-between items-center">
-            <div>
-              <h1 className="text-xl mb-2">{currentRoom?.name}</h1>
-              <p className="text-xs text-muted-foreground">
-                USERS: {currentRoom?.participants}
-              </p>
+        <div className="min-h-screen flex flex-col bg-black">
+          {/* ROOM HEADER */}
+          <div className="border-b-4 border-foreground p-4 bg-black flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-2 h-12"
+                style={{ backgroundColor: ROOM_THEME_COLORS[currentRoom?.theme || 'general'] }}
+              />
+              <div>
+                <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                <p className="text-xs text-muted-foreground">
+                  {currentRoom?.currentParticipants}/{currentRoom?.maxParticipants} участников
+                </p>
+              </div>
             </div>
             <Button
               onClick={leaveRoom}
-              className="border-2 border-foreground bg-card hover:bg-muted text-xs"
+              variant="outline"
+              className="border-2 border-foreground text-xs"
             >
               <Icon name="LogOut" size={16} className="mr-2" />
-              LEAVE
+              ВЫЙТИ
             </Button>
           </div>
 
-          <Card className="border-4 border-foreground">
-            <CardContent className="p-0">
-              <ScrollArea className="h-[500px] p-4">
-                <div className="space-y-4">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className="space-y-1">
-                      <div className="flex gap-2 text-xs">
-                        <span className="text-primary">{msg.user}:</span>
-                        <span className="text-muted-foreground">{msg.timestamp}</span>
-                      </div>
-                      <p className="text-xs pl-4">{msg.text}</p>
+          {/* CHAT MESSAGES */}
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {messages.map((msg) => (
+                <div key={msg.id} className="flex gap-3 group">
+                  {/* AVATAR */}
+                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                    <div className="w-16 h-16 border-2 border-foreground">
+                      <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                    <span className="text-xs">{msg.user}</span>
+                  </div>
 
-          <div className="flex gap-2">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="TYPE MESSAGE..."
-              className="border-2 border-foreground text-xs"
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            />
-            <Button
-              onClick={sendMessage}
-              className="border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
-            >
-              <Icon name="Send" size={16} />
-            </Button>
+                  {/* MESSAGE CONTENT */}
+                  <div className="flex-1 flex flex-col gap-2">
+                    {msg.isReply && msg.replyTo && (
+                      <div className="text-xs text-cyan-400 italic">
+                        {msg.replyTo} ОПЯТЬ!))))
+                      </div>
+                    )}
+                    <div 
+                      className="p-4 text-sm border-2 border-foreground relative"
+                      style={{ backgroundColor: msg.bgColor || '#2D2D2D' }}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+
+                  {/* REPLY BUTTON */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setReplyingTo(msg)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground self-start"
+                  >
+                    <Icon name="Hash" size={16} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+
+          {/* MESSAGE INPUT */}
+          <div className="border-t-4 border-foreground p-4 bg-black">
+            <div className="max-w-4xl mx-auto space-y-2">
+              {replyingTo && (
+                <div className="flex items-center justify-between p-2 border-2 border-foreground bg-card text-xs">
+                  <span>Ответ для: <span className="text-primary">{replyingTo.user}</span></span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReplyingTo(null)}
+                  >
+                    <Icon name="X" size={14} />
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
+                  <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
+                </div>
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="тебе делать нечего?"
+                  className="border-2 border-foreground text-sm flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                />
+                <Button
+                  onClick={sendMessage}
+                  className="border-2 border-foreground bg-primary hover:bg-primary/80"
+                  size="sm"
+                >
+                  <Icon name="Hash" size={20} />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
