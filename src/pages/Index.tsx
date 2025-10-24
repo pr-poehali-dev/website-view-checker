@@ -582,15 +582,19 @@ const Index = () => {
                 </>
               )}
               
-              {isAuthenticated && (
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  className="w-full border-2 border-foreground text-xs bg-red-900"
-                >
-                  ВЫЙТИ ИЗ АККАУНТА
-                </Button>
-              )}
+              <Button
+                onClick={() => {
+                  if (isAuthenticated) {
+                    handleLogout();
+                  } else {
+                    setCurrentView('login');
+                  }
+                }}
+                variant="outline"
+                className="w-full border-2 border-foreground text-xs bg-red-900"
+              >
+                {isAuthenticated ? 'ВЫЙТИ ИЗ АККАУНТА' : 'ВЫЙТИ'}
+              </Button>
 
               <Button
                 onClick={() => setShowCreateRoom(true)}
@@ -880,19 +884,17 @@ const Index = () => {
                 }}
               />
               <div className="relative w-80 border-2 border-foreground bg-black p-4 space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold">🔑 ВХОД</h3>
-                  <button
-                    onClick={() => {
-                      setShowAuthModal(false);
-                      setAuthId('');
-                      setAuthPassword('');
-                    }}
-                    className="text-xs hover:text-primary"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    setAuthId('');
+                    setAuthPassword('');
+                  }}
+                  className="absolute -top-3 -right-3 w-6 h-6 border-2 border-foreground bg-black flex items-center justify-center hover:bg-red-900 transition-colors text-xs"
+                >
+                  ✕
+                </button>
+                <h3 className="text-xs font-bold mb-2">🔑 ВХОД</h3>
                 
                 <Input
                   value={authId}
@@ -1007,18 +1009,13 @@ const Index = () => {
             {/* PROFILE */}
             <div className="p-6 border-b-4 border-foreground">
               {/* LOGO */}
-              {!isAuthenticated && (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="w-full hover:opacity-70 transition-opacity mb-4"
-                >
-                  <img 
-                    src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
-                    alt="URBAN GROVE" 
-                    className="w-full h-auto"
-                  />
-                </button>
-              )}
+              <div className="w-full mb-4">
+                <img 
+                  src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
+                  alt="URBAN GROVE" 
+                  className="w-full h-auto"
+                />
+              </div>
               
               <div className="text-center space-y-3">
                 <div className="w-20 h-20 mx-auto border-2 border-foreground">
