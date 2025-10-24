@@ -485,34 +485,90 @@ const Index = () => {
           )}
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col bg-black">
-          {/* ROOM HEADER */}
-          <div className="border-b-4 border-foreground p-4 bg-black flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div 
-                className="w-2 h-12"
-                style={{ backgroundColor: ROOM_THEME_COLORS[currentRoom?.theme || 'general'] }}
-              />
-              <div>
-                <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
-                <p className="text-xs text-muted-foreground">
-                  {currentRoom?.currentParticipants}/{currentRoom?.maxParticipants} участников
-                </p>
+        <div className="min-h-screen flex bg-black">
+          {/* LEFT SIDEBAR */}
+          <div className="w-64 border-r-4 border-foreground flex flex-col bg-black">
+            {/* PROFILE */}
+            <div className="p-6 border-b-4 border-foreground">
+              <div className="text-center space-y-3">
+                <div className="w-20 h-20 mx-auto border-2 border-foreground">
+                  <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
+                </div>
+                <div 
+                  className="text-xs font-bold p-2 border-2 border-foreground inline-block"
+                  style={{ backgroundColor: selectedBgColor || '#2D2D2D' }}
+                >
+                  {username}
+                </div>
               </div>
             </div>
-            <Button
-              onClick={leaveRoom}
-              variant="outline"
-              className="border-2 border-foreground text-xs"
-            >
-              <Icon name="LogOut" size={16} className="mr-2" />
-              ВЫЙТИ
-            </Button>
+
+            {/* OTHER ROOMS LIST */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="text-xs text-muted-foreground mb-3">ДРУГИЕ КОМНАТЫ:</p>
+              <div className="space-y-3">
+                {rooms.filter(room => room.id !== currentRoom?.id).map((room) => (
+                  <div 
+                    key={room.id} 
+                    className="border-2 border-foreground p-3 bg-card opacity-60 cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div 
+                        className="w-1 h-8"
+                        style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
+                      />
+                      <div className="flex-1">
+                        <h4 className="text-xs font-bold">{room.name}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {room.currentParticipants}/{room.maxParticipants}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {room.participants.slice(0, 4).map((p, idx) => (
+                        <span key={idx} className="text-xs text-cyan-400">
+                          {p.username}{idx < Math.min(room.participants.length, 4) - 1 ? ',' : ''}
+                        </span>
+                      ))}
+                      {room.participants.length > 4 && (
+                        <span className="text-xs text-muted-foreground">+{room.participants.length - 4}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* CHAT MESSAGES */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-6 max-w-4xl mx-auto">
+          {/* MAIN CHAT AREA */}
+          <div className="flex-1 flex flex-col">
+            {/* ROOM HEADER */}
+            <div className="border-b-4 border-foreground p-4 bg-black flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-2 h-12"
+                  style={{ backgroundColor: ROOM_THEME_COLORS[currentRoom?.theme || 'general'] }}
+                />
+                <div>
+                  <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                  <p className="text-xs text-muted-foreground">
+                    {currentRoom?.currentParticipants}/{currentRoom?.maxParticipants} участников
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={leaveRoom}
+                variant="outline"
+                className="border-2 border-foreground text-xs"
+              >
+                <Icon name="LogOut" size={16} className="mr-2" />
+                ВЫЙТИ
+              </Button>
+            </div>
+
+            {/* CHAT MESSAGES */}
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-6 max-w-4xl mx-auto">
               {messages.map((msg) => (
                 <div key={msg.id} className="flex gap-3 group">
                   {/* AVATAR */}
@@ -550,41 +606,42 @@ const Index = () => {
                 </div>
               ))}
             </div>
-          </ScrollArea>
+            </ScrollArea>
 
-          {/* MESSAGE INPUT */}
-          <div className="border-t-4 border-foreground p-4 bg-black">
-            <div className="max-w-4xl mx-auto space-y-2">
-              {replyingTo && (
-                <div className="flex items-center justify-between p-2 border-2 border-foreground bg-card text-xs">
-                  <span>Ответ для: <span className="text-primary">{replyingTo.user}</span></span>
+            {/* MESSAGE INPUT */}
+            <div className="border-t-4 border-foreground p-4 bg-black">
+              <div className="max-w-4xl mx-auto space-y-2">
+                {replyingTo && (
+                  <div className="flex items-center justify-between p-2 border-2 border-foreground bg-card text-xs">
+                    <span>Ответ для: <span className="text-primary">{replyingTo.user}</span></span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReplyingTo(null)}
+                    >
+                      <Icon name="X" size={14} />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-2 items-center">
+                  <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
+                    <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
+                  </div>
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="тебе делать нечего?"
+                    className="border-2 border-foreground text-sm flex-1"
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  />
                   <Button
-                    variant="ghost"
+                    onClick={sendMessage}
+                    className="border-2 border-foreground bg-primary hover:bg-primary/80"
                     size="sm"
-                    onClick={() => setReplyingTo(null)}
                   >
-                    <Icon name="X" size={14} />
+                    <Icon name="Hash" size={20} />
                   </Button>
                 </div>
-              )}
-              <div className="flex gap-2 items-center">
-                <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
-                  <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
-                </div>
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="тебе делать нечего?"
-                  className="border-2 border-foreground text-sm flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                />
-                <Button
-                  onClick={sendMessage}
-                  className="border-2 border-foreground bg-primary hover:bg-primary/80"
-                  size="sm"
-                >
-                  <Icon name="Hash" size={20} />
-                </Button>
               </div>
             </div>
           </div>
