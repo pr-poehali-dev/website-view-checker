@@ -492,12 +492,8 @@ const Index = () => {
                 disabled={!username.trim()}
                 className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
               >
-                ВОЙТИ КАК ГОСТЬ
+                ВОЙТИ
               </Button>
-              
-              <p className="text-xs text-center text-cyan-400">
-                💡 Кликни на логотип для входа в аккаунт
-              </p>
             </CardContent>
           </Card>
         </div>
