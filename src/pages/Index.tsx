@@ -5,10 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 
+type RoomTheme = 'general' | 'tech' | 'gaming' | 'music' | 'art' | 'sports';
+
+type RoomParticipant = {
+  username: string;
+  avatar: string;
+};
+
 type Room = {
   id: string;
   name: string;
-  participants: number;
+  theme: RoomTheme;
+  currentParticipants: number;
+  maxParticipants: number;
+  participants: RoomParticipant[];
 };
 
 type Message = {
@@ -45,6 +55,24 @@ const BACKGROUND_COLORS = [
   { name: 'ORANGE', value: '#9a3412' },
 ];
 
+const ROOM_THEME_COLORS: Record<RoomTheme, string> = {
+  general: '#6B7280',
+  tech: '#3B82F6',
+  gaming: '#8B5CF6',
+  music: '#EC4899',
+  art: '#F59E0B',
+  sports: '#10B981',
+};
+
+const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
+  general: 'ОБЩЕЕ',
+  tech: 'ТЕХНО',
+  gaming: 'ИГРЫ',
+  music: 'МУЗЫКА',
+  art: 'ИСКУССТВО',
+  sports: 'СПОРТ',
+};
+
 const Index = () => {
   const [currentView, setCurrentView] = useState<'login' | 'lobby' | 'room'>('login');
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
@@ -54,9 +82,45 @@ const Index = () => {
   const [selectedBgColor, setSelectedBgColor] = useState('');
   const [useCustomAvatar, setUseCustomAvatar] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
-    { id: '1', name: 'Lounge', participants: 5 },
-    { id: '2', name: 'Tech Talk', participants: 12 },
-    { id: '3', name: 'Gaming', participants: 8 },
+    {
+      id: '1',
+      name: 'Lounge',
+      theme: 'general',
+      currentParticipants: 3,
+      maxParticipants: 10,
+      participants: [
+        { username: 'Alex', avatar: STANDARD_AVATARS[0] },
+        { username: 'Maria', avatar: STANDARD_AVATARS[1] },
+        { username: 'John', avatar: STANDARD_AVATARS[2] },
+      ],
+    },
+    {
+      id: '2',
+      name: 'Tech Talk',
+      theme: 'tech',
+      currentParticipants: 5,
+      maxParticipants: 8,
+      participants: [
+        { username: 'DevGuy', avatar: STANDARD_AVATARS[3] },
+        { username: 'Coder', avatar: STANDARD_AVATARS[4] },
+        { username: 'Tech', avatar: STANDARD_AVATARS[5] },
+        { username: 'AI', avatar: STANDARD_AVATARS[6] },
+        { username: 'Web', avatar: STANDARD_AVATARS[7] },
+      ],
+    },
+    {
+      id: '3',
+      name: 'Gaming Hub',
+      theme: 'gaming',
+      currentParticipants: 4,
+      maxParticipants: 6,
+      participants: [
+        { username: 'Gamer1', avatar: STANDARD_AVATARS[8] },
+        { username: 'Pro', avatar: STANDARD_AVATARS[9] },
+        { username: 'Noob', avatar: STANDARD_AVATARS[10] },
+        { username: 'Elite', avatar: STANDARD_AVATARS[11] },
+      ],
+    },
   ]);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', user: 'Admin', text: 'Welcome to the room!', timestamp: '12:00' },
@@ -222,66 +286,95 @@ const Index = () => {
           </Card>
         </div>
       ) : currentView === 'lobby' ? (
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="border-4 border-foreground p-4 bg-card">
-            <h1 className="text-2xl mb-4">CHAT ROOMS</h1>
-            <p className="text-xs text-muted-foreground mb-4">USER: {username}</p>
+        <div className="min-h-screen flex">
+          {/* LEFT SIDEBAR - PROFILE */}
+          <div className="w-64 border-r-4 border-foreground p-6 bg-black">
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-3 border-2 border-foreground">
+                  <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
+                </div>
+                <div 
+                  className="text-xs font-bold p-2 border-2 border-foreground inline-block"
+                  style={{ backgroundColor: selectedBgColor || '#2D2D2D' }}
+                >
+                  {username}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <Card className="border-4 border-foreground">
-            <CardHeader>
-              <CardTitle className="text-sm">CREATE ROOM</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="ROOM NAME"
-                className="border-2 border-foreground text-xs"
-                onKeyDown={(e) => e.key === 'Enter' && createRoom()}
-              />
-              <Button
-                onClick={createRoom}
-                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
-              >
-                CREATE
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-4 border-foreground">
-            <CardHeader>
-              <CardTitle className="text-sm">AVAILABLE ROOMS</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {rooms.map((room) => (
-                    <div
-                      key={room.id}
-                      className="border-2 border-foreground p-4 bg-card hover:bg-muted transition-colors"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-sm mb-2">{room.name}</h3>
-                          <p className="text-xs text-muted-foreground">
-                            USERS: {room.participants}
+          {/* MAIN CONTENT - ROOMS */}
+          <div className="flex-1 p-8 bg-background">
+            <ScrollArea className="h-screen">
+              <div className="space-y-6 max-w-4xl">
+                {rooms.map((room) => (
+                  <Card key={room.id} className="border-2 border-foreground bg-card">
+                    <CardContent className="p-6">
+                      {/* ROOM HEADER */}
+                      <div className="flex items-start gap-4 mb-4">
+                        <div 
+                          className="w-3 h-20 flex-shrink-0"
+                          style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div 
+                              className="px-3 py-1 text-xs border-2 border-foreground"
+                              style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
+                            >
+                              {ROOM_THEME_NAMES[room.theme]}
+                            </div>
+                            <h3 className="text-lg font-bold">{room.name}</h3>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {room.currentParticipants}/{room.maxParticipants} УЧАСТНИКОВ
                           </p>
                         </div>
-                        <Button
+                      </div>
+
+                      {/* PARTICIPANTS */}
+                      <div className="mb-4">
+                        <div className="flex gap-2 flex-wrap">
+                          {room.participants.map((participant, idx) => (
+                            <div key={idx} className="flex flex-col items-center gap-1">
+                              <div className="w-12 h-12 border-2 border-foreground">
+                                <img src={participant.avatar} alt={participant.username} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-xs">{participant.username}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* ACTIONS */}
+                      <div className="flex gap-2">
+                        <Button 
                           onClick={() => joinRoom(room)}
-                          size="sm"
-                          className="border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
+                          className="flex-1 border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
+                          disabled={room.currentParticipants >= room.maxParticipants}
                         >
-                          JOIN
+                          ВОЙТИ
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          className="flex-1 border-2 border-foreground text-xs"
+                        >
+                          ПОСТУЧАТЬ
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          className="border-2 border-foreground text-xs"
+                        >
+                          <Icon name="Flag" size={16} />
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       ) : (
         <div className="max-w-4xl mx-auto space-y-4">
