@@ -53,16 +53,7 @@ const Index = () => {
       participants: [],
     },
   ]);
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      id: '1', 
-      user: 'Admin', 
-      avatar: STANDARD_AVATARS[0],
-      bgColor: '#2D2D2D',
-      text: 'Добро пожаловать в комнату!', 
-      timestamp: '12:00' 
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDescription, setNewRoomDescription] = useState('');

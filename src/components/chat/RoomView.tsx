@@ -280,7 +280,7 @@ export const RoomView = ({
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="тебе делать нечего?"
+                  placeholder=""
                   className="border-2 border-foreground text-sm flex-1"
                   maxLength={150}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
