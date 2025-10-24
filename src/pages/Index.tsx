@@ -16,8 +16,11 @@ type RoomParticipant = {
 type Room = {
   id: string;
   name: string;
+  description?: string;
   theme: RoomTheme;
   badge?: RoomBadge;
+  password?: string;
+  creatorId: string;
   currentParticipants: number;
   maxParticipants: number;
   participants: RoomParticipant[];
@@ -87,7 +90,9 @@ const Index = () => {
     {
       id: '1',
       name: 'Lounge',
+      description: 'Общая комната для всех',
       theme: 'general',
+      creatorId: 'system',
       currentParticipants: 3,
       maxParticipants: 10,
       participants: [
@@ -99,7 +104,9 @@ const Index = () => {
     {
       id: '2',
       name: 'Tech Talk',
+      description: 'Обсуждаем технологии',
       theme: 'tech',
+      creatorId: 'system',
       currentParticipants: 5,
       maxParticipants: 8,
       participants: [
@@ -114,6 +121,7 @@ const Index = () => {
       id: '3',
       name: 'Gaming Hub',
       theme: 'gaming',
+      creatorId: 'system',
       currentParticipants: 4,
       maxParticipants: 6,
       participants: [
@@ -136,15 +144,47 @@ const Index = () => {
   ]);
   const [newMessage, setNewMessage] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomDescription, setNewRoomDescription] = useState('');
   const [newRoomTheme, setNewRoomTheme] = useState<RoomTheme>('general');
   const [newRoomBadge, setNewRoomBadge] = useState<RoomBadge>('none');
+  const [newRoomPassword, setNewRoomPassword] = useState('');
   const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(10);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [passwordRoom, setPasswordRoom] = useState<Room | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [editingRoomName, setEditingRoomName] = useState(false);
+  const [editingRoomDescription, setEditingRoomDescription] = useState(false);
+  const [tempRoomName, setTempRoomName] = useState('');
+  const [tempRoomDescription, setTempRoomDescription] = useState('');
 
   const joinRoom = (room: Room) => {
+    // Check if room is full and user is not admin
+    if (room.currentParticipants >= room.maxParticipants && !isAdmin) {
+      return;
+    }
+    
+    // Check if room has password
+    if (room.password && !isAdmin) {
+      setPasswordRoom(room);
+      setShowPasswordPrompt(true);
+      return;
+    }
+    
     setCurrentRoom(room);
     setCurrentView('room');
+  };
+  
+  const handlePasswordSubmit = () => {
+    if (passwordRoom && passwordInput === passwordRoom.password) {
+      setCurrentRoom(passwordRoom);
+      setCurrentView('room');
+      setShowPasswordPrompt(false);
+      setPasswordRoom(null);
+      setPasswordInput('');
+    }
   };
 
   const leaveRoom = () => {
@@ -157,8 +197,11 @@ const Index = () => {
       const newRoom: Room = {
         id: Date.now().toString(),
         name: newRoomName,
+        description: newRoomDescription || undefined,
         theme: newRoomTheme,
         badge: newRoomBadge !== 'none' ? newRoomBadge : undefined,
+        password: newRoomPassword || undefined,
+        creatorId: username,
         currentParticipants: 1,
         maxParticipants: newRoomMaxParticipants,
         participants: [
@@ -167,12 +210,69 @@ const Index = () => {
       };
       setRooms([...rooms, newRoom]);
       setNewRoomName('');
+      setNewRoomDescription('');
+      setNewRoomPassword('');
       setNewRoomTheme('general');
       setNewRoomBadge('none');
       setNewRoomMaxParticipants(10);
       setShowCreateRoom(false);
-      joinRoom(newRoom);
+      setCurrentRoom(newRoom);
+      setCurrentView('room');
     }
+  };
+  
+  const deleteRoom = (roomId: string) => {
+    setRooms(rooms.filter(r => r.id !== roomId));
+    if (currentRoom?.id === roomId) {
+      leaveRoom();
+    }
+  };
+  
+  const deleteMessage = (messageId: string) => {
+    setMessages(messages.filter(m => m.id !== messageId));
+  };
+  
+  const kickParticipant = (participantUsername: string) => {
+    if (!currentRoom) return;
+    const updatedRoom = {
+      ...currentRoom,
+      participants: currentRoom.participants.filter(p => p.username !== participantUsername),
+      currentParticipants: currentRoom.currentParticipants - 1
+    };
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+  };
+  
+  const expandRoom = () => {
+    if (!currentRoom) return;
+    const updatedRoom = {
+      ...currentRoom,
+      maxParticipants: currentRoom.maxParticipants + 5
+    };
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+  };
+  
+  const updateRoomName = () => {
+    if (!currentRoom || !tempRoomName.trim()) return;
+    const updatedRoom = {
+      ...currentRoom,
+      name: tempRoomName
+    };
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    setEditingRoomName(false);
+  };
+  
+  const updateRoomDescription = () => {
+    if (!currentRoom) return;
+    const updatedRoom = {
+      ...currentRoom,
+      description: tempRoomDescription || undefined
+    };
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    setEditingRoomDescription(false);
   };
 
   const sendMessage = () => {
@@ -327,9 +427,17 @@ const Index = () => {
                   className="text-xs font-bold p-2 border-2 border-foreground inline-block"
                   style={{ backgroundColor: selectedBgColor || '#2D2D2D' }}
                 >
-                  {username}
+                  {username} {isAdmin && '👑'}
                 </div>
               </div>
+
+              <Button
+                onClick={() => setIsAdmin(!isAdmin)}
+                variant={isAdmin ? "default" : "outline"}
+                className="w-full border-2 border-foreground text-xs"
+              >
+                {isAdmin ? '👑 АДМИН РЕЖИМ' : 'СТАТЬ АДМИНОМ'}
+              </Button>
 
               <Button
                 onClick={() => setShowCreateRoom(true)}
@@ -355,6 +463,9 @@ const Index = () => {
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            {room.password && (
+                              <Icon name="Lock" size={16} className="text-yellow-500" />
+                            )}
                             <div 
                               className="px-3 py-1 text-xs border-2 border-foreground"
                               style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
@@ -368,6 +479,9 @@ const Index = () => {
                             )}
                             <h3 className="text-lg font-bold">{room.name}</h3>
                           </div>
+                          {room.description && (
+                            <p className="text-xs text-cyan-400 mb-1">{room.description}</p>
+                          )}
                           <p className="text-sm text-muted-foreground">
                             {room.currentParticipants}/{room.maxParticipants} УЧАСТНИКОВ
                           </p>
@@ -393,10 +507,19 @@ const Index = () => {
                         <Button 
                           onClick={() => joinRoom(room)}
                           className="flex-1 border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
-                          disabled={room.currentParticipants >= room.maxParticipants}
+                          disabled={room.currentParticipants >= room.maxParticipants && !isAdmin}
                         >
-                          ВОЙТИ
+                          {room.password ? '🔒 ' : ''}ВОЙТИ
                         </Button>
+                        {isAdmin && (
+                          <Button 
+                            onClick={() => deleteRoom(room.id)}
+                            variant="outline"
+                            className="border-2 border-foreground text-xs bg-red-900"
+                          >
+                            <Icon name="Trash2" size={16} />
+                          </Button>
+                        )}
                         <Button 
                           variant="outline"
                           className="flex-1 border-2 border-foreground text-xs"
@@ -443,6 +566,29 @@ const Index = () => {
                       placeholder="ВВЕДИТЕ НАЗВАНИЕ"
                       className="border-2 border-foreground text-xs"
                       maxLength={30}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs mb-2">ОПИСАНИЕ (необязательно):</p>
+                    <Input
+                      value={newRoomDescription}
+                      onChange={(e) => setNewRoomDescription(e.target.value)}
+                      placeholder="КРАТКОЕ ОПИСАНИЕ КОМНАТЫ"
+                      className="border-2 border-foreground text-xs"
+                      maxLength={100}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs mb-2">ПАРОЛЬ (необязательно):</p>
+                    <Input
+                      type="password"
+                      value={newRoomPassword}
+                      onChange={(e) => setNewRoomPassword(e.target.value)}
+                      placeholder="ПАРОЛЬ ДЛЯ ВХОДА"
+                      className="border-2 border-foreground text-xs"
+                      maxLength={20}
                     />
                   </div>
 
@@ -524,6 +670,50 @@ const Index = () => {
               </Card>
             </div>
           )}
+
+          {/* PASSWORD PROMPT MODAL */}
+          {showPasswordPrompt && passwordRoom && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-sm border-4 border-foreground bg-black">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    🔒 ВВЕДИТЕ ПАРОЛЬ
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowPasswordPrompt(false);
+                        setPasswordRoom(null);
+                        setPasswordInput('');
+                      }}
+                      className="text-xs"
+                    >
+                      <Icon name="X" size={20} />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Комната "{passwordRoom.name}" защищена паролем
+                  </p>
+                  <Input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="ВВЕДИТЕ ПАРОЛЬ"
+                    className="border-2 border-foreground text-xs"
+                    onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                  />
+                  <Button
+                    onClick={handlePasswordSubmit}
+                    className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
+                  >
+                    ВОЙТИ
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       ) : (
         <div className="min-h-screen flex bg-black">
@@ -539,7 +729,7 @@ const Index = () => {
                   className="text-xs font-bold p-2 border-2 border-foreground inline-block"
                   style={{ backgroundColor: selectedBgColor || '#2D2D2D' }}
                 >
-                  {username}
+                  {username} {isAdmin && '👑'}
                 </div>
               </div>
             </div>
@@ -560,6 +750,7 @@ const Index = () => {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-1">
+                          {room.password && <Icon name="Lock" size={10} className="text-yellow-500" />}
                           <h4 className="text-xs font-bold">{room.name}</h4>
                           {room.badge && (
                             <span className="text-xs">{ROOM_BADGES[room.badge].icon}</span>
@@ -597,24 +788,111 @@ const Index = () => {
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                    {editingRoomName && isAdmin && (currentRoom?.creatorId === username || isAdmin) ? (
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          value={tempRoomName}
+                          onChange={(e) => setTempRoomName(e.target.value)}
+                          className="border-2 border-foreground text-sm w-48"
+                          maxLength={30}
+                        />
+                        <Button size="sm" onClick={updateRoomName} className="text-xs">
+                          <Icon name="Check" size={16} />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingRoomName(false)} className="text-xs">
+                          <Icon name="X" size={16} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <h1 className="text-lg font-bold">{currentRoom?.name}</h1>
+                        {isAdmin && (currentRoom?.creatorId === username || isAdmin) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setTempRoomName(currentRoom?.name || '');
+                              setEditingRoomName(true);
+                            }}
+                          >
+                            <Icon name="Edit" size={14} />
+                          </Button>
+                        )}
+                      </>
+                    )}
                     {currentRoom?.badge && (
                       <span className="text-lg">{ROOM_BADGES[currentRoom.badge].icon}</span>
                     )}
                   </div>
+                  {editingRoomDescription && isAdmin && (currentRoom?.creatorId === username || isAdmin) ? (
+                    <div className="flex gap-2 items-center mt-1">
+                      <Input
+                        value={tempRoomDescription}
+                        onChange={(e) => setTempRoomDescription(e.target.value)}
+                        className="border-2 border-foreground text-xs"
+                        placeholder="Описание комнаты"
+                        maxLength={100}
+                      />
+                      <Button size="sm" onClick={updateRoomDescription} className="text-xs">
+                        <Icon name="Check" size={14} />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingRoomDescription(false)} className="text-xs">
+                        <Icon name="X" size={14} />
+                      </Button>
+                    </div>
+                  ) : (
+                    currentRoom?.description && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-cyan-400">{currentRoom.description}</p>
+                        {isAdmin && (currentRoom?.creatorId === username || isAdmin) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setTempRoomDescription(currentRoom?.description || '');
+                              setEditingRoomDescription(true);
+                            }}
+                          >
+                            <Icon name="Edit" size={12} />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {currentRoom?.currentParticipants}/{currentRoom?.maxParticipants} участников
+                    {isAdmin && (currentRoom?.creatorId === username || isAdmin) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={expandRoom}
+                        className="ml-2 text-xs"
+                      >
+                        +5 <Icon name="Users" size={12} className="ml-1" />
+                      </Button>
+                    )}
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={leaveRoom}
-                variant="outline"
-                className="border-2 border-foreground text-xs"
-              >
-                <Icon name="LogOut" size={16} className="mr-2" />
-                ВЫЙТИ
-              </Button>
+              <div className="flex gap-2">
+                {isAdmin && (currentRoom?.creatorId === username || isAdmin) && (
+                  <Button
+                    onClick={() => currentRoom && deleteRoom(currentRoom.id)}
+                    variant="outline"
+                    className="border-2 border-foreground text-xs bg-red-900"
+                  >
+                    <Icon name="Trash2" size={16} />
+                  </Button>
+                )}
+                <Button
+                  onClick={leaveRoom}
+                  variant="outline"
+                  className="border-2 border-foreground text-xs"
+                >
+                  <Icon name="LogOut" size={16} className="mr-2" />
+                  ВЫЙТИ
+                </Button>
+              </div>
             </div>
 
             {/* CHAT MESSAGES */}
@@ -624,10 +902,20 @@ const Index = () => {
                 <div key={msg.id} className="flex gap-3 group">
                   {/* AVATAR */}
                   <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                    <div className="w-16 h-16 border-2 border-foreground">
+                    <div className="w-16 h-16 border-2 border-foreground relative">
                       <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
                     </div>
                     <span className="text-xs">{msg.user}</span>
+                    {isAdmin && msg.user !== username && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => kickParticipant(msg.user)}
+                        className="text-xs border-2 border-foreground bg-red-900 opacity-0 group-hover:opacity-100"
+                      >
+                        <Icon name="UserX" size={12} />
+                      </Button>
+                    )}
                   </div>
 
                   {/* MESSAGE CONTENT */}
@@ -645,15 +933,27 @@ const Index = () => {
                     </div>
                   </div>
 
-                  {/* REPLY BUTTON */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setReplyingTo(msg)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground self-start"
-                  >
-                    <Icon name="Hash" size={16} />
-                  </Button>
+                  {/* ACTION BUTTONS */}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReplyingTo(msg)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground"
+                    >
+                      <Icon name="Hash" size={16} />
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteMessage(msg.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground bg-red-900"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
