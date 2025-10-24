@@ -45,47 +45,12 @@ const Index = () => {
   const [rooms, setRooms] = useState<Room[]>([
     {
       id: '1',
-      name: 'Lounge',
-      description: 'Общая комната для всех',
+      name: 'тест',
       theme: 'general',
       creatorId: 'system',
-      currentParticipants: 3,
+      currentParticipants: 0,
       maxParticipants: 10,
-      participants: [
-        { username: 'Alex', avatar: STANDARD_AVATARS[0] },
-        { username: 'Maria', avatar: STANDARD_AVATARS[1] },
-        { username: 'John', avatar: STANDARD_AVATARS[2] },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Tech Talk',
-      description: 'Обсуждаем технологии',
-      theme: 'tech',
-      creatorId: 'system',
-      currentParticipants: 5,
-      maxParticipants: 8,
-      participants: [
-        { username: 'DevGuy', avatar: STANDARD_AVATARS[3] },
-        { username: 'Coder', avatar: STANDARD_AVATARS[4] },
-        { username: 'Tech', avatar: STANDARD_AVATARS[0] },
-        { username: 'AI', avatar: STANDARD_AVATARS[1] },
-        { username: 'Web', avatar: STANDARD_AVATARS[2] },
-      ],
-    },
-    {
-      id: '3',
-      name: 'Gaming Hub',
-      theme: 'gaming',
-      creatorId: 'system',
-      currentParticipants: 4,
-      maxParticipants: 6,
-      participants: [
-        { username: 'Gamer1', avatar: STANDARD_AVATARS[3] },
-        { username: 'Pro', avatar: STANDARD_AVATARS[4] },
-        { username: 'Noob', avatar: STANDARD_AVATARS[0] },
-        { username: 'Elite', avatar: STANDARD_AVATARS[1] },
-      ],
+      participants: [],
     },
   ]);
   const [messages, setMessages] = useState<Message[]>([
