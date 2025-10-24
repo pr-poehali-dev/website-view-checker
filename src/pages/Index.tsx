@@ -402,12 +402,12 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 font-['Press_Start_2P']">
+    <div className="min-h-screen bg-black text-foreground font-['Press_Start_2P']">
       {currentView === 'login' ? (
-        <div className="max-w-xl mx-auto mt-12">
-          <Card className="border-0 bg-black">
-            <CardContent className="p-8 space-y-6">
-              <div className="text-center p-8 flex items-center justify-center">
+        <div className="h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl">
+            <div className="space-y-4">
+              <div className="text-center mb-4">
                 <button
                   onClick={() => setShowAuthModal(true)}
                   className="hover:opacity-70 transition-opacity cursor-pointer"
@@ -415,15 +415,15 @@ const Index = () => {
                   <img 
                     src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
                     alt="URBAN GROVE" 
-                    className="max-w-full h-auto"
-                    style={{ maxHeight: '120px' }}
+                    className="max-w-full h-auto mx-auto"
+                    style={{ maxHeight: '80px' }}
                   />
                 </button>
               </div>
 
               <div>
-                <p className="text-xs mb-3">ВЫБЕРИТЕ АВАТАР:</p>
-                <div className="grid grid-cols-4 gap-2 mb-4">
+                <p className="text-xs mb-2">ВЫБЕРИТЕ АВАТАР:</p>
+                <div className="grid grid-cols-8 gap-1">
                   {STANDARD_AVATARS.map((avatarUrl, index) => (
                     <button
                       key={index}
@@ -431,7 +431,7 @@ const Index = () => {
                         setSelectedAvatar(avatarUrl);
                         setUseCustomAvatar(false);
                       }}
-                      className={`border-2 p-2 transition-colors ${
+                      className={`border-2 p-1 transition-colors ${
                         selectedAvatar === avatarUrl && !useCustomAvatar
                           ? 'border-primary bg-primary/20'
                           : 'border-foreground bg-card hover:bg-muted'
@@ -443,67 +443,59 @@ const Index = () => {
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs mb-3">ИЛИ ЗАГРУЗИТЕ СВОЮ:</p>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="avatar-upload"
-                  />
-                  <label
-                    htmlFor="avatar-upload"
-                    className="flex-1 border-2 border-foreground bg-card hover:bg-muted p-3 text-xs cursor-pointer text-center transition-colors"
-                  >
-                    {useCustomAvatar && customAvatar ? 'ЗАГРУЖЕНО ✓' : 'ВЫБРАТЬ ФАЙЛ'}
-                  </label>
-                  {useCustomAvatar && customAvatar && (
-                    <div className="border-2 border-foreground w-16 h-16 flex items-center justify-center bg-card">
-                      <img src={customAvatar} alt="avatar" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                </div>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <label
+                  htmlFor="avatar-upload"
+                  className="flex-1 border-2 border-foreground bg-card hover:bg-muted p-2 text-xs cursor-pointer text-center transition-colors"
+                >
+                  {useCustomAvatar && customAvatar ? 'СВОЙ АВАТАР ✓' : 'ЗАГРУЗИТЬ СВОЙ'}
+                </label>
+                {useCustomAvatar && customAvatar && (
+                  <div className="border-2 border-foreground w-12 h-12 flex items-center justify-center bg-card">
+                    <img src={customAvatar} alt="avatar" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
 
-              <div>
-                <p className="text-xs mb-3">НИКНЕЙМ:</p>
-                <div className="flex gap-2">
-                  <Input
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="ВВЕДИТЕ ИМЯ"
-                    className="border-2 border-foreground text-xs flex-1"
-                    maxLength={20}
-                  />
-                  <div className="relative">
-                    <select
-                      value={selectedBgColor}
-                      onChange={(e) => setSelectedBgColor(e.target.value)}
-                      className="border-2 border-foreground bg-card text-foreground p-2 text-xs appearance-none cursor-pointer h-full"
-                      style={{ width: '120px' }}
-                    >
-                      <option value="">ЦВЕТ</option>
-                      {BACKGROUND_COLORS.map((color) => (
-                        <option key={color.value} value={color.value}>
-                          {color.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              <div className="flex gap-2">
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="НИКНЕЙМ"
+                  className="border-2 border-foreground text-xs flex-1 h-10"
+                  maxLength={20}
+                />
+                <select
+                  value={selectedBgColor}
+                  onChange={(e) => setSelectedBgColor(e.target.value)}
+                  className="border-2 border-foreground bg-card text-foreground p-2 text-xs appearance-none cursor-pointer h-10"
+                  style={{ width: '100px' }}
+                >
+                  <option value="">ЦВЕТ</option>
+                  {BACKGROUND_COLORS.map((color) => (
+                    <option key={color.value} value={color.value}>
+                      {color.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <Button
                 onClick={handleLogin}
                 disabled={!username.trim()}
-                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-xs h-10"
               >
                 ВОЙТИ
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       ) : currentView === 'lobby' ? (
         <div className="min-h-screen flex">
