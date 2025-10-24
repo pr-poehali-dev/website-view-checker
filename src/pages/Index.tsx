@@ -404,7 +404,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-black text-foreground p-4 font-['Press_Start_2P']">
       {currentView === 'login' ? (
-        <div className="max-w-xl mx-auto mt-4">
+        <div className="max-w-xl mx-auto mt-2">
           <Card className="border-0 bg-black">
             <CardContent className="p-6 space-y-4">
               <div className="text-center p-4 flex items-center justify-center">
