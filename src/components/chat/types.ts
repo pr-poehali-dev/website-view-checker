@@ -24,9 +24,11 @@ export type Room = {
   badge?: RoomBadge;
   password?: string;
   creatorId: string;
+  creatorUsername: string;
   currentParticipants: number;
   maxParticipants: number;
   participants: RoomParticipant[];
+  bannedUsers: string[];
 };
 
 export type Message = {

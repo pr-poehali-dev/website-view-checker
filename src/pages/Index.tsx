@@ -48,9 +48,11 @@ const Index = () => {
       name: 'тест',
       theme: 'general',
       creatorId: 'system',
+      creatorUsername: 'system',
       currentParticipants: 0,
       maxParticipants: 10,
       participants: [],
+      bannedUsers: [],
     },
   ]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -73,6 +75,11 @@ const Index = () => {
   const [tempRoomDescription, setTempRoomDescription] = useState('');
 
   const joinRoom = (room: Room) => {
+    if (room.bannedUsers.includes(username)) {
+      alert('Вы забанены в этой комнате');
+      return;
+    }
+    
     if (room.currentParticipants >= room.maxParticipants && !isAdmin) {
       return;
     }
@@ -160,11 +167,13 @@ const Index = () => {
         badge: newRoomBadge !== 'none' ? newRoomBadge : undefined,
         password: newRoomPassword || undefined,
         creatorId: username,
+        creatorUsername: username,
         currentParticipants: 1,
         maxParticipants: newRoomMaxParticipants,
         participants: [
           { username, avatar: selectedAvatar }
         ],
+        bannedUsers: [],
       };
       setRooms([...rooms, newRoom]);
       setNewRoomName('');
@@ -211,6 +220,18 @@ const Index = () => {
       ...currentRoom,
       participants: currentRoom.participants.filter(p => p.username !== participantUsername),
       currentParticipants: currentRoom.currentParticipants - 1
+    };
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+  };
+  
+  const banParticipant = (participantUsername: string) => {
+    if (!currentRoom) return;
+    const updatedRoom = {
+      ...currentRoom,
+      participants: currentRoom.participants.filter(p => p.username !== participantUsername),
+      currentParticipants: currentRoom.currentParticipants - 1,
+      bannedUsers: [...currentRoom.bannedUsers, participantUsername]
     };
     setCurrentRoom(updatedRoom);
     setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
@@ -442,6 +463,7 @@ const Index = () => {
           sendMessage={sendMessage}
           deleteMessage={deleteMessage}
           kickParticipant={kickParticipant}
+          banParticipant={banParticipant}
           expandRoom={expandRoom}
           updateRoomName={updateRoomName}
           updateRoomDescription={updateRoomDescription}

@@ -27,6 +27,7 @@ type RoomViewProps = {
   sendMessage: () => void;
   deleteMessage: (id: string) => void;
   kickParticipant: (username: string) => void;
+  banParticipant: (username: string) => void;
   expandRoom: () => void;
   updateRoomName: () => void;
   updateRoomDescription: () => void;
@@ -55,10 +56,12 @@ export const RoomView = ({
   sendMessage,
   deleteMessage,
   kickParticipant,
+  banParticipant,
   expandRoom,
   updateRoomName,
   updateRoomDescription,
 }: RoomViewProps) => {
+  const isHost = currentRoom.creatorUsername === username;
   return (
     <div className="min-h-screen flex bg-black">
       <div className="w-64 border-r-4 border-foreground p-6 bg-black">
@@ -115,14 +118,14 @@ export const RoomView = ({
                 <h2 
                   className="text-2xl font-bold cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
                   onClick={() => {
-                    if (isAdmin || currentRoom.creatorId === username) {
+                    if (isHost) {
                       setTempRoomName(currentRoom.name);
                       setEditingRoomName(true);
                     }
                   }}
                 >
                   {currentRoom.name}
-                  {(isAdmin || currentRoom.creatorId === username) && (
+                  {isHost && (
                     <Icon name="Pencil" size={16} />
                   )}
                 </h2>
@@ -150,21 +153,21 @@ export const RoomView = ({
                 <p 
                   className="text-sm text-muted-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
                   onClick={() => {
-                    if (isAdmin || currentRoom.creatorId === username) {
+                    if (isHost) {
                       setTempRoomDescription(currentRoom.description || '');
                       setEditingRoomDescription(true);
                     }
                   }}
                 >
                   {currentRoom.description || 'Нет описания'}
-                  {(isAdmin || currentRoom.creatorId === username) && (
+                  {isHost && (
                     <Icon name="Pencil" size={12} />
                   )}
                 </p>
               )}
               <p className="text-sm text-muted-foreground">
                 {currentRoom.currentParticipants}/{currentRoom.maxParticipants} УЧАСТНИКОВ
-                {isAdmin && (
+                {isHost && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -214,15 +217,27 @@ export const RoomView = ({
                     <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
                   </div>
                   <span className="text-xs">{msg.user}</span>
-                  {isAdmin && msg.user !== username && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => kickParticipant(msg.user)}
-                      className="text-xs border-2 border-foreground bg-red-900 opacity-0 group-hover:opacity-100"
-                    >
-                      <Icon name="UserX" size={12} />
-                    </Button>
+                  {isHost && msg.user !== username && (
+                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => kickParticipant(msg.user)}
+                        className="text-xs border-2 border-foreground bg-orange-900"
+                        title="Кикнуть"
+                      >
+                        <Icon name="UserX" size={12} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => banParticipant(msg.user)}
+                        className="text-xs border-2 border-foreground bg-red-900"
+                        title="Забанить"
+                      >
+                        <Icon name="Ban" size={12} />
+                      </Button>
+                    </div>
                   )}
                 </div>
 
