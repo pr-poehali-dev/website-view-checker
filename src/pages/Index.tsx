@@ -18,7 +18,24 @@ type Message = {
   timestamp: string;
 };
 
-const STANDARD_AVATARS = ['👤', '🐱', '🐶', '🦊', '🐼', '🦁', '🐯', '🐸'];
+const STANDARD_AVATARS = [
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,0,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,0,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,0,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,0,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,256,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,256,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,256,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,256,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,512,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,512,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,512,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,512,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,768,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,768,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,768,256,256',
+  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,768,256,256',
+];
 const BACKGROUND_COLORS = [
   { name: 'GRAY', value: '#2D2D2D' },
   { name: 'RED', value: '#633946' },
@@ -109,9 +126,9 @@ const Index = () => {
     <div className="min-h-screen bg-background text-foreground p-4 font-['Press_Start_2P']">
       {currentView === 'login' ? (
         <div className="max-w-xl mx-auto mt-12">
-          <Card className="border-4 border-foreground">
+          <Card className="border-0 bg-black">
             <CardContent className="p-8 space-y-6">
-              <div className="text-center border-4 border-foreground p-8 bg-card flex items-center justify-center">
+              <div className="text-center p-8 flex items-center justify-center">
                 <img 
                   src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
                   alt="URBAN GROVE" 
@@ -123,20 +140,20 @@ const Index = () => {
               <div>
                 <p className="text-xs mb-3">ВЫБЕРИТЕ АВАТАР:</p>
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                  {STANDARD_AVATARS.map((emoji) => (
+                  {STANDARD_AVATARS.map((avatarUrl, index) => (
                     <button
-                      key={emoji}
+                      key={index}
                       onClick={() => {
-                        setSelectedAvatar(emoji);
+                        setSelectedAvatar(avatarUrl);
                         setUseCustomAvatar(false);
                       }}
-                      className={`border-2 p-4 text-3xl transition-colors ${
-                        selectedAvatar === emoji && !useCustomAvatar
+                      className={`border-2 p-2 transition-colors ${
+                        selectedAvatar === avatarUrl && !useCustomAvatar
                           ? 'border-primary bg-primary/20'
                           : 'border-foreground bg-card hover:bg-muted'
                       }`}
                     >
-                      {emoji}
+                      <img src={avatarUrl} alt={`avatar-${index}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
