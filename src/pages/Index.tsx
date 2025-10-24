@@ -106,7 +106,15 @@ const Index = () => {
     }
     setMessages(updatedMessages);
     
-    setCurrentRoom(room);
+    const isAlreadyParticipant = room.participants.some(p => p.username === username);
+    const updatedRoom = isAlreadyParticipant ? room : {
+      ...room,
+      participants: [...room.participants, { username, avatar: selectedAvatar }],
+      currentParticipants: room.currentParticipants + 1
+    };
+    
+    setCurrentRoom(updatedRoom);
+    setRooms(rooms.map(r => r.id === room.id ? updatedRoom : r));
     setCurrentView('room');
   };
   
@@ -128,7 +136,15 @@ const Index = () => {
       }
       setMessages(updatedMessages);
       
-      setCurrentRoom(passwordRoom);
+      const isAlreadyParticipant = passwordRoom.participants.some(p => p.username === username);
+      const updatedRoom = isAlreadyParticipant ? passwordRoom : {
+        ...passwordRoom,
+        participants: [...passwordRoom.participants, { username, avatar: selectedAvatar }],
+        currentParticipants: passwordRoom.currentParticipants + 1
+      };
+      
+      setCurrentRoom(updatedRoom);
+      setRooms(rooms.map(r => r.id === passwordRoom.id ? updatedRoom : r));
       setCurrentView('room');
       setShowPasswordPrompt(false);
       setPasswordRoom(null);
@@ -152,6 +168,15 @@ const Index = () => {
       updatedMessages.pop();
     }
     setMessages(updatedMessages);
+    
+    if (currentRoom) {
+      const updatedRoom = {
+        ...currentRoom,
+        participants: currentRoom.participants.filter(p => p.username !== username),
+        currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
+      };
+      setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    }
     
     setCurrentView('lobby');
     setCurrentRoom(null);
@@ -219,7 +244,7 @@ const Index = () => {
     const updatedRoom = {
       ...currentRoom,
       participants: currentRoom.participants.filter(p => p.username !== participantUsername),
-      currentParticipants: currentRoom.currentParticipants - 1
+      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
     };
     setCurrentRoom(updatedRoom);
     setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
@@ -230,7 +255,7 @@ const Index = () => {
     const updatedRoom = {
       ...currentRoom,
       participants: currentRoom.participants.filter(p => p.username !== participantUsername),
-      currentParticipants: currentRoom.currentParticipants - 1,
+      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1),
       bannedUsers: [...currentRoom.bannedUsers, participantUsername]
     };
     setCurrentRoom(updatedRoom);
