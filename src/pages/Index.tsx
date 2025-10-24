@@ -858,61 +858,57 @@ const Index = () => {
             </div>
           )}
           
-          {/* AUTH MODAL */}
+          {/* AUTH DIALOG */}
           {showAuthModal && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-              <Card className="w-full max-w-sm border-4 border-foreground bg-black">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    🔑 ВХОД В АККАУНТ
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowAuthModal(false);
-                        setAuthId('');
-                        setAuthPassword('');
-                      }}
-                      className="text-xs"
-                    >
-                      <Icon name="X" size={20} />
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-xs mb-2">УНИКАЛЬНЫЙ ID:</p>
-                    <Input
-                      value={authId}
-                      onChange={(e) => setAuthId(e.target.value)}
-                      placeholder="Например: ADM001"
-                      className="border-2 border-foreground text-xs"
-                      maxLength={10}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-xs mb-2">ПАРОЛЬ:</p>
-                    <Input
-                      type="password"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      placeholder="ВВЕДИТЕ ПАРОЛЬ"
-                      className="border-2 border-foreground text-xs"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAuth}
-                    disabled={!authId.trim() || !authPassword.trim()}
-                    className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs disabled:opacity-50"
+            <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+              <div 
+                className="absolute inset-0 bg-black/60"
+                onClick={() => {
+                  setShowAuthModal(false);
+                  setAuthId('');
+                  setAuthPassword('');
+                }}
+              />
+              <div className="relative w-80 border-2 border-foreground bg-black p-4 space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold">🔑 ВХОД</h3>
+                  <button
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      setAuthId('');
+                      setAuthPassword('');
+                    }}
+                    className="text-xs hover:text-primary"
                   >
-                    ВОЙТИ
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Создать аккаунт может только администратор
-                  </p>
-                </CardContent>
-              </Card>
+                    ✕
+                  </button>
+                </div>
+                
+                <Input
+                  value={authId}
+                  onChange={(e) => setAuthId(e.target.value)}
+                  placeholder="ID"
+                  className="border-2 border-foreground text-xs h-8"
+                  maxLength={10}
+                />
+                
+                <Input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="ПАРОЛЬ"
+                  className="border-2 border-foreground text-xs h-8"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                />
+                
+                <Button
+                  onClick={handleAuth}
+                  disabled={!authId.trim() || !authPassword.trim()}
+                  className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs h-8 disabled:opacity-50"
+                >
+                  ВОЙТИ
+                </Button>
+              </div>
             </div>
           )}
           
