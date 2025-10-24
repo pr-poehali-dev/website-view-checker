@@ -96,9 +96,9 @@ const Index = () => {
       participants: [
         { username: 'DevGuy', avatar: STANDARD_AVATARS[3] },
         { username: 'Coder', avatar: STANDARD_AVATARS[4] },
-        { username: 'Tech', avatar: STANDARD_AVATARS[5] },
-        { username: 'AI', avatar: STANDARD_AVATARS[6] },
-        { username: 'Web', avatar: STANDARD_AVATARS[7] },
+        { username: 'Tech', avatar: STANDARD_AVATARS[0] },
+        { username: 'AI', avatar: STANDARD_AVATARS[1] },
+        { username: 'Web', avatar: STANDARD_AVATARS[2] },
       ],
     },
     {
@@ -108,10 +108,10 @@ const Index = () => {
       currentParticipants: 4,
       maxParticipants: 6,
       participants: [
-        { username: 'Gamer1', avatar: STANDARD_AVATARS[8] },
-        { username: 'Pro', avatar: STANDARD_AVATARS[9] },
-        { username: 'Noob', avatar: STANDARD_AVATARS[10] },
-        { username: 'Elite', avatar: STANDARD_AVATARS[11] },
+        { username: 'Gamer1', avatar: STANDARD_AVATARS[3] },
+        { username: 'Pro', avatar: STANDARD_AVATARS[4] },
+        { username: 'Noob', avatar: STANDARD_AVATARS[0] },
+        { username: 'Elite', avatar: STANDARD_AVATARS[1] },
       ],
     },
   ]);
