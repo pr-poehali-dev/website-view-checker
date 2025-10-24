@@ -33,22 +33,11 @@ type Message = {
 };
 
 const STANDARD_AVATARS = [
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,0,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,0,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,0,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,0,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,256,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,256,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,256,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,256,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,512,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,512,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,512,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,512,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=0,768,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=256,768,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=512,768,256,256',
-  'https://cdn.poehali.dev/files/10e7d202-e5ba-46d0-b11f-0178011b9661.png?crop=768,768,256,256',
+  'https://cdn.poehali.dev/files/90c55e86-49a4-46f2-b041-0d2934b03dbc.png',
+  'https://cdn.poehali.dev/files/a73c7cc5-ab03-4413-8658-82ddea3f4f62.png',
+  'https://cdn.poehali.dev/files/e63965a5-418e-4797-9ffe-5aa15bf0a608.png',
+  'https://cdn.poehali.dev/files/03b0d38a-b9c0-47ad-9108-e008295023c4.png',
+  'https://cdn.poehali.dev/files/1531e4f6-da32-40f7-84f0-b191e723fbb8.png',
 ];
 const BACKGROUND_COLORS = [
   { name: 'GRAY', value: '#2D2D2D' },
