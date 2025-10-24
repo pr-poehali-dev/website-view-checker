@@ -38,6 +38,7 @@ export type Message = {
   timestamp: string;
   isReply?: boolean;
   replyTo?: string;
+  isSystemMessage?: boolean;
 };
 
 export const STANDARD_AVATARS = [

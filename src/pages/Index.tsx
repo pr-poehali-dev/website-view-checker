@@ -83,12 +83,44 @@ const Index = () => {
       return;
     }
     
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `${username} в чате.`,
+      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isSystemMessage: true,
+    };
+    
+    const updatedMessages = [...messages, systemMessage];
+    if (updatedMessages.length > 30) {
+      updatedMessages.shift();
+    }
+    setMessages(updatedMessages);
+    
     setCurrentRoom(room);
     setCurrentView('room');
   };
   
   const handlePasswordSubmit = () => {
     if (passwordRoom && passwordInput === passwordRoom.password) {
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        user: '',
+        avatar: '',
+        bgColor: '',
+        text: `${username} в чате.`,
+        timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        isSystemMessage: true,
+      };
+      
+      const updatedMessages = [...messages, systemMessage];
+      if (updatedMessages.length > 30) {
+        updatedMessages.shift();
+      }
+      setMessages(updatedMessages);
+      
       setCurrentRoom(passwordRoom);
       setCurrentView('room');
       setShowPasswordPrompt(false);
@@ -98,6 +130,22 @@ const Index = () => {
   };
 
   const leaveRoom = () => {
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `${username} покинул чат.`,
+      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isSystemMessage: true,
+    };
+    
+    const updatedMessages = [...messages, systemMessage];
+    if (updatedMessages.length > 30) {
+      updatedMessages.shift();
+    }
+    setMessages(updatedMessages);
+    
     setCurrentView('lobby');
     setCurrentRoom(null);
   };

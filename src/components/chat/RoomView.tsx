@@ -201,59 +201,67 @@ export const RoomView = ({
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-6 max-w-4xl mx-auto">
           {messages.map((msg) => (
-            <div key={msg.id} className="flex gap-3 group">
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                <div className="w-16 h-16 border-2 border-foreground relative">
-                  <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
-                </div>
-                <span className="text-xs">{msg.user}</span>
-                {isAdmin && msg.user !== username && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => kickParticipant(msg.user)}
-                    className="text-xs border-2 border-foreground bg-red-900 opacity-0 group-hover:opacity-100"
-                  >
-                    <Icon name="UserX" size={12} />
-                  </Button>
-                )}
-              </div>
-
-              <div className="flex-1 flex flex-col gap-2">
-                {msg.isReply && msg.replyTo && (
-                  <div className="text-xs text-cyan-400 italic">
-                    {msg.replyTo} ОПЯТЬ!))))
-                  </div>
-                )}
-                <div 
-                  className="p-4 text-sm border-2 border-foreground relative"
-                  style={{ backgroundColor: msg.bgColor || '#2D2D2D' }}
-                >
+            msg.isSystemMessage ? (
+              <div key={msg.id} className="flex justify-center py-2">
+                <div className="text-sm text-muted-foreground italic">
                   {msg.text}
                 </div>
               </div>
+            ) : (
+              <div key={msg.id} className="flex gap-3 group">
+                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                  <div className="w-16 h-16 border-2 border-foreground relative">
+                    <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-xs">{msg.user}</span>
+                  {isAdmin && msg.user !== username && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => kickParticipant(msg.user)}
+                      className="text-xs border-2 border-foreground bg-red-900 opacity-0 group-hover:opacity-100"
+                    >
+                      <Icon name="UserX" size={12} />
+                    </Button>
+                  )}
+                </div>
 
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setReplyingTo(msg)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground"
-                >
-                  <Icon name="Hash" size={16} />
-                </Button>
-                {isAdmin && (
+                <div className="flex-1 flex flex-col gap-2">
+                  {msg.isReply && msg.replyTo && (
+                    <div className="text-xs text-cyan-400 italic">
+                      {msg.replyTo} ОПЯТЬ!))))
+                    </div>
+                  )}
+                  <div 
+                    className="p-4 text-sm border-2 border-foreground relative"
+                    style={{ backgroundColor: msg.bgColor || '#2D2D2D' }}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => deleteMessage(msg.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground bg-red-900"
+                    onClick={() => setReplyingTo(msg)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground"
                   >
-                    <Icon name="Trash2" size={16} />
+                    <Icon name="Hash" size={16} />
                   </Button>
-                )}
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteMessage(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground bg-red-900"
+                    >
+                      <Icon name="Trash2" size={16} />
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            )
           ))}
         </div>
         </ScrollArea>
