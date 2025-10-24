@@ -8,6 +8,17 @@ import Icon from '@/components/ui/icon';
 type RoomTheme = 'general' | 'tech' | 'gaming' | 'music' | 'art' | 'sports';
 type RoomBadge = 'adult' | 'music' | 'video' | 'none';
 
+type UserRole = 'guest' | 'user' | 'moderator' | 'admin';
+
+type Account = {
+  id: string;
+  password: string;
+  username: string;
+  role: UserRole;
+  avatar: string;
+  bgColor: string;
+};
+
 type RoomParticipant = {
   username: string;
   avatar: string;
@@ -86,6 +97,26 @@ const Index = () => {
   const [customAvatar, setCustomAvatar] = useState('');
   const [selectedBgColor, setSelectedBgColor] = useState('');
   const [useCustomAvatar, setUseCustomAvatar] = useState(false);
+  
+  const [accounts, setAccounts] = useState<Account[]>([
+    {
+      id: 'ADM001',
+      password: 'admin123',
+      username: 'HeadAdmin',
+      role: 'admin',
+      avatar: STANDARD_AVATARS[0],
+      bgColor: '#633946'
+    }
+  ]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authId, setAuthId] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [newAccountUsername, setNewAccountUsername] = useState('');
+  const [newAccountPassword, setNewAccountPassword] = useState('');
+  const [newAccountRole, setNewAccountRole] = useState<UserRole>('user');
   const [rooms, setRooms] = useState<Room[]>([
     {
       id: '1',
@@ -302,6 +333,53 @@ const Index = () => {
       setCurrentView('lobby');
     }
   };
+  
+  const handleAuth = () => {
+    const account = accounts.find(acc => acc.id === authId && acc.password === authPassword);
+    if (account) {
+      setCurrentAccount(account);
+      setIsAuthenticated(true);
+      setUsername(account.username);
+      setSelectedAvatar(account.avatar);
+      setSelectedBgColor(account.bgColor);
+      if (account.role === 'admin' || account.role === 'moderator') {
+        setIsAdmin(true);
+      }
+      setCurrentView('lobby');
+      setShowAuthModal(false);
+      setAuthId('');
+      setAuthPassword('');
+    }
+  };
+  
+  const handleCreateAccount = () => {
+    if (newAccountUsername.trim() && newAccountPassword.trim()) {
+      const newId = `USR${(accounts.length + 1).toString().padStart(3, '0')}`;
+      const newAccount: Account = {
+        id: newId,
+        password: newAccountPassword,
+        username: newAccountUsername,
+        role: newAccountRole,
+        avatar: STANDARD_AVATARS[Math.floor(Math.random() * STANDARD_AVATARS.length)],
+        bgColor: BACKGROUND_COLORS[Math.floor(Math.random() * BACKGROUND_COLORS.length)].value
+      };
+      setAccounts([...accounts, newAccount]);
+      setNewAccountUsername('');
+      setNewAccountPassword('');
+      setNewAccountRole('user');
+      setShowCreateAccountModal(false);
+      
+      const accountInfo = `🎉 АККАУНТ СОЗДАН!\n\n📋 ID: ${newId}\n🔑 Пароль: ${newAccountPassword}\n👤 Роль: ${newAccountRole === 'admin' ? '👑 Админ' : newAccountRole === 'moderator' ? '⚔️ Модератор' : '👤 Юзер'}\n\n⚠️ Сохраните эти данные!`;
+      alert(accountInfo);
+    }
+  };
+  
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentAccount(null);
+    setIsAdmin(false);
+    setCurrentView('login');
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -322,12 +400,17 @@ const Index = () => {
           <Card className="border-0 bg-black">
             <CardContent className="p-8 space-y-6">
               <div className="text-center p-8 flex items-center justify-center">
-                <img 
-                  src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
-                  alt="URBAN GROVE" 
-                  className="max-w-full h-auto"
-                  style={{ maxHeight: '120px' }}
-                />
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="hover:opacity-70 transition-opacity cursor-pointer"
+                >
+                  <img 
+                    src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
+                    alt="URBAN GROVE" 
+                    className="max-w-full h-auto"
+                    style={{ maxHeight: '120px' }}
+                  />
+                </button>
               </div>
 
               <div>
@@ -409,8 +492,12 @@ const Index = () => {
                 disabled={!username.trim()}
                 className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
               >
-                ВОЙТИ
+                ВОЙТИ КАК ГОСТЬ
               </Button>
+              
+              <p className="text-xs text-center text-cyan-400">
+                💡 Кликни на логотип для входа в аккаунт
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -429,15 +516,71 @@ const Index = () => {
                 >
                   {username} {isAdmin && '👑'}
                 </div>
+                {isAuthenticated && currentAccount && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-xs text-cyan-400">
+                      ID: {currentAccount.id}
+                    </div>
+                    <div className="text-xs">
+                      {currentAccount.role === 'admin' && '👑 АДМИНИСТРАТОР'}
+                      {currentAccount.role === 'moderator' && '⚔️ МОДЕРАТОР'}
+                      {currentAccount.role === 'user' && '👤 АВТОРИЗОВАН'}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <Button
-                onClick={() => setIsAdmin(!isAdmin)}
-                variant={isAdmin ? "default" : "outline"}
-                className="w-full border-2 border-foreground text-xs"
-              >
-                {isAdmin ? '👑 АДМИН РЕЖИМ' : 'СТАТЬ АДМИНОМ'}
-              </Button>
+              {!isAuthenticated && (
+                <Button
+                  onClick={() => setIsAdmin(!isAdmin)}
+                  variant={isAdmin ? "default" : "outline"}
+                  className="w-full border-2 border-foreground text-xs"
+                >
+                  {isAdmin ? '👑 АДМИН РЕЖИМ' : 'СТАТЬ АДМИНОМ'}
+                </Button>
+              )}
+
+              {isAdmin && (
+                <>
+                  <Button
+                    onClick={() => setShowCreateAccountModal(true)}
+                    variant="outline"
+                    className="w-full border-2 border-foreground text-xs bg-purple-900"
+                  >
+                    + СОЗДАТЬ АККАУНТ
+                  </Button>
+                  
+                  <div className="border-2 border-foreground p-3 bg-card">
+                    <p className="text-xs font-bold mb-2">АККАУНТЫ ({accounts.length}):</p>
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-2">
+                        {accounts.map((acc) => (
+                          <div key={acc.id} className="text-xs p-2 border border-foreground bg-black">
+                            <div className="flex items-center gap-2">
+                              {acc.role === 'admin' && '👑'}
+                              {acc.role === 'moderator' && '⚔️'}
+                              {acc.role === 'user' && '👤'}
+                              <span className="text-cyan-400">{acc.id}</span>
+                              <span>-</span>
+                              <span>{acc.username}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </>
+              )}
+              
+              {isAuthenticated && (
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="w-full border-2 border-foreground text-xs bg-red-900"
+                >
+                  ВЫЙТИ ИЗ АККАУНТА
+                </Button>
+              )}
 
               <Button
                 onClick={() => setShowCreateRoom(true)}
@@ -714,6 +857,142 @@ const Index = () => {
               </Card>
             </div>
           )}
+          
+          {/* AUTH MODAL */}
+          {showAuthModal && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-sm border-4 border-foreground bg-black">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    🔑 ВХОД В АККАУНТ
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowAuthModal(false);
+                        setAuthId('');
+                        setAuthPassword('');
+                      }}
+                      className="text-xs"
+                    >
+                      <Icon name="X" size={20} />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-xs mb-2">УНИКАЛЬНЫЙ ID:</p>
+                    <Input
+                      value={authId}
+                      onChange={(e) => setAuthId(e.target.value)}
+                      placeholder="Например: ADM001"
+                      className="border-2 border-foreground text-xs"
+                      maxLength={10}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs mb-2">ПАРОЛЬ:</p>
+                    <Input
+                      type="password"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      placeholder="ВВЕДИТЕ ПАРОЛЬ"
+                      className="border-2 border-foreground text-xs"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleAuth}
+                    disabled={!authId.trim() || !authPassword.trim()}
+                    className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs disabled:opacity-50"
+                  >
+                    ВОЙТИ
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Создать аккаунт может только администратор
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* CREATE ACCOUNT MODAL */}
+          {showCreateAccountModal && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-md border-4 border-foreground bg-black">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    👤 СОЗДАТЬ АККАУНТ
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowCreateAccountModal(false);
+                        setNewAccountUsername('');
+                        setNewAccountPassword('');
+                        setNewAccountRole('user');
+                      }}
+                      className="text-xs"
+                    >
+                      <Icon name="X" size={20} />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-xs mb-2">НИКНЕЙМ:</p>
+                    <Input
+                      value={newAccountUsername}
+                      onChange={(e) => setNewAccountUsername(e.target.value)}
+                      placeholder="ВВЕДИТЕ НИКНЕЙМ"
+                      className="border-2 border-foreground text-xs"
+                      maxLength={20}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs mb-2">ПАРОЛЬ:</p>
+                    <Input
+                      type="password"
+                      value={newAccountPassword}
+                      onChange={(e) => setNewAccountPassword(e.target.value)}
+                      placeholder="ПРИДУМАЙТЕ ПАРОЛЬ"
+                      className="border-2 border-foreground text-xs"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs mb-2">РОЛЬ:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['user', 'moderator', 'admin'] as UserRole[]).map((role) => (
+                        <button
+                          key={role}
+                          onClick={() => setNewAccountRole(role)}
+                          className={`p-3 text-xs border-2 transition-all ${
+                            newAccountRole === role
+                              ? 'border-primary bg-primary/20'
+                              : 'border-foreground bg-card hover:bg-muted'
+                          }`}
+                        >
+                          {role === 'user' && '👤 ЮЗЕР'}
+                          {role === 'moderator' && '⚔️ МОДЕРАТОР'}
+                          {role === 'admin' && '👑 АДМИН'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleCreateAccount}
+                    disabled={!newAccountUsername.trim() || !newAccountPassword.trim()}
+                    className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs disabled:opacity-50"
+                  >
+                    СОЗДАТЬ
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    ID будет сгенерирован автоматически
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       ) : (
         <div className="min-h-screen flex bg-black">
@@ -731,6 +1010,18 @@ const Index = () => {
                 >
                   {username} {isAdmin && '👑'}
                 </div>
+                {isAuthenticated && currentAccount && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-cyan-400">
+                      ID: {currentAccount.id}
+                    </div>
+                    <div className="text-xs">
+                      {currentAccount.role === 'admin' && '👑 АДМИНИСТРАТОР'}
+                      {currentAccount.role === 'moderator' && '⚔️ МОДЕРАТОР'}
+                      {currentAccount.role === 'user' && '👤 АВТОРИЗОВАН'}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
