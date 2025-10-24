@@ -100,6 +100,14 @@ const Index = () => {
   
   const [accounts, setAccounts] = useState<Account[]>([
     {
+      id: 'usermelikhov',
+      password: '2qu307syuo',
+      username: 'ВЛАДЕЛЕЦ',
+      role: 'admin',
+      avatar: STANDARD_AVATARS[0],
+      bgColor: '#FFD700'
+    },
+    {
       id: 'ADM001',
       password: 'admin123',
       username: 'HeadAdmin',
@@ -1194,14 +1202,14 @@ const Index = () => {
             >
               ✕
             </button>
-            <h3 className="text-xs font-bold mb-2">🔑 ВХОД</h3>
+            <h3 className="text-xs font-bold mb-2">ВХОД</h3>
             
             <Input
               value={authId}
               onChange={(e) => setAuthId(e.target.value)}
               placeholder="ID"
               className="border-2 border-foreground text-xs h-8"
-              maxLength={10}
+              maxLength={20}
             />
             
             <Input
