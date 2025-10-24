@@ -74,7 +74,7 @@ const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
 };
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'login' | 'lobby' | 'room'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'lobby' | 'room' | 'create-room'>('login');
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [username, setUsername] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
@@ -127,6 +127,9 @@ const Index = () => {
   ]);
   const [newMessage, setNewMessage] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomTheme, setNewRoomTheme] = useState<RoomTheme>('general');
+  const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(10);
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
 
   const joinRoom = (room: Room) => {
     setCurrentRoom(room);
@@ -143,10 +146,18 @@ const Index = () => {
       const newRoom: Room = {
         id: Date.now().toString(),
         name: newRoomName,
-        participants: 1,
+        theme: newRoomTheme,
+        currentParticipants: 1,
+        maxParticipants: newRoomMaxParticipants,
+        participants: [
+          { username, avatar: selectedAvatar }
+        ],
       };
       setRooms([...rooms, newRoom]);
       setNewRoomName('');
+      setNewRoomTheme('general');
+      setNewRoomMaxParticipants(10);
+      setShowCreateRoom(false);
       joinRoom(newRoom);
     }
   };
@@ -301,6 +312,13 @@ const Index = () => {
                   {username}
                 </div>
               </div>
+
+              <Button
+                onClick={() => setShowCreateRoom(true)}
+                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
+              >
+                + СОЗДАТЬ КОМНАТУ
+              </Button>
             </div>
           </div>
 
@@ -375,6 +393,90 @@ const Index = () => {
               </div>
             </ScrollArea>
           </div>
+
+          {/* CREATE ROOM MODAL */}
+          {showCreateRoom && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-md border-4 border-foreground bg-black">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    СОЗДАТЬ КОМНАТУ
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCreateRoom(false)}
+                      className="text-xs"
+                    >
+                      <Icon name="X" size={20} />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-xs mb-2">НАЗВАНИЕ:</p>
+                    <Input
+                      value={newRoomName}
+                      onChange={(e) => setNewRoomName(e.target.value)}
+                      placeholder="ВВЕДИТЕ НАЗВАНИЕ"
+                      className="border-2 border-foreground text-xs"
+                      maxLength={30}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs mb-2">ТЕМА:</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(Object.keys(ROOM_THEME_COLORS) as RoomTheme[]).map((theme) => (
+                        <button
+                          key={theme}
+                          onClick={() => setNewRoomTheme(theme)}
+                          className={`p-3 text-xs border-2 transition-all ${
+                            newRoomTheme === theme
+                              ? 'border-foreground scale-105'
+                              : 'border-muted opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: ROOM_THEME_COLORS[theme] }}
+                        >
+                          {ROOM_THEME_NAMES[theme]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs mb-2">МАКС. УЧАСТНИКОВ:</p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => setNewRoomMaxParticipants(Math.max(2, newRoomMaxParticipants - 1))}
+                        className="border-2 border-foreground text-xs px-3"
+                        size="sm"
+                      >
+                        -
+                      </Button>
+                      <div className="flex-1 text-center border-2 border-foreground p-2 text-sm">
+                        {newRoomMaxParticipants}
+                      </div>
+                      <Button
+                        onClick={() => setNewRoomMaxParticipants(Math.min(20, newRoomMaxParticipants + 1))}
+                        className="border-2 border-foreground text-xs px-3"
+                        size="sm"
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={createRoom}
+                    disabled={!newRoomName.trim()}
+                    className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs disabled:opacity-50"
+                  >
+                    СОЗДАТЬ
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       ) : (
         <div className="max-w-4xl mx-auto space-y-4">
