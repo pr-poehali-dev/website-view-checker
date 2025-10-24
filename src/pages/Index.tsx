@@ -111,8 +111,13 @@ const Index = () => {
         <div className="max-w-xl mx-auto mt-12">
           <Card className="border-4 border-foreground">
             <CardContent className="p-8 space-y-6">
-              <div className="text-center border-4 border-foreground p-8 bg-card">
-                <h1 className="text-4xl tracking-wider">ТЕСТ</h1>
+              <div className="text-center border-4 border-foreground p-8 bg-card flex items-center justify-center">
+                <img 
+                  src="https://cdn.poehali.dev/files/166d02d4-e599-4ec9-97b0-e59fda3ae85c.png" 
+                  alt="URBAN GROVE" 
+                  className="max-w-full h-auto"
+                  style={{ maxHeight: '120px' }}
+                />
               </div>
 
               <div>
