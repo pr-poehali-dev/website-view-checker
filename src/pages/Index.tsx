@@ -266,6 +266,21 @@ const Index = () => {
       leaveRoom();
     }
   };
+
+  const knockOnRoom = (room: Room) => {
+    const knockMessage: Message = {
+      id: Date.now().toString(),
+      user: 'System',
+      avatar: STANDARD_AVATARS[0],
+      bgColor: '#6B7280',
+      text: `${username} стучится в комнату`,
+      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    };
+    
+    if (currentRoom?.id === room.id) {
+      setMessages([...messages, knockMessage]);
+    }
+  };
   
   const deleteMessage = (messageId: string) => {
     setMessages(messages.filter(m => m.id !== messageId));
@@ -671,6 +686,7 @@ const Index = () => {
                           </Button>
                         )}
                         <Button 
+                          onClick={() => knockOnRoom(room)}
                           variant="outline"
                           className="flex-1 border-2 border-foreground text-xs"
                         >
