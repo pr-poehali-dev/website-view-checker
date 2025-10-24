@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -354,6 +354,13 @@ const Index = () => {
       setSelectedAvatar(finalAvatar);
       setSelectedBgColor(finalBgColor);
       setCurrentView('lobby');
+      
+      localStorage.setItem('userSession', JSON.stringify({
+        username,
+        avatar: finalAvatar,
+        bgColor: finalBgColor,
+        isAuthenticated: false
+      }));
     }
   };
   
@@ -372,6 +379,15 @@ const Index = () => {
       setShowAuthModal(false);
       setAuthId('');
       setAuthPassword('');
+      
+      localStorage.setItem('userSession', JSON.stringify({
+        username: account.username,
+        avatar: account.avatar,
+        bgColor: account.bgColor,
+        isAuthenticated: true,
+        accountId: account.id,
+        accountRole: account.role
+      }));
     }
   };
   
@@ -402,7 +418,35 @@ const Index = () => {
     setCurrentAccount(null);
     setIsAdmin(false);
     setCurrentView('login');
+    localStorage.removeItem('userSession');
   };
+
+  useEffect(() => {
+    const savedSession = localStorage.getItem('userSession');
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        setUsername(session.username);
+        setSelectedAvatar(session.avatar);
+        setSelectedBgColor(session.bgColor);
+        setCurrentView('lobby');
+        
+        if (session.isAuthenticated && session.accountId) {
+          const account = accounts.find(acc => acc.id === session.accountId);
+          if (account) {
+            setCurrentAccount(account);
+            setIsAuthenticated(true);
+            if (account.role === 'admin' || account.role === 'moderator') {
+              setIsAdmin(true);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to restore session:', error);
+        localStorage.removeItem('userSession');
+      }
+    }
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
