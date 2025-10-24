@@ -336,12 +336,16 @@ const Index = () => {
         user: username,
         avatar: selectedAvatar,
         bgColor: selectedBgColor,
-        text: newMessage,
+        text: newMessage.slice(0, 150),
         timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         isReply: !!replyingTo,
         replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
       };
-      setMessages([...messages, message]);
+      const updatedMessages = [...messages, message];
+      if (updatedMessages.length > 30) {
+        updatedMessages.shift();
+      }
+      setMessages(updatedMessages);
       setNewMessage('');
       setReplyingTo(null);
     }
@@ -1205,24 +1209,30 @@ const Index = () => {
                     </Button>
                   </div>
                 )}
-                <div className="flex gap-2 items-center">
-                  <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
-                    <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
+                <div className="space-y-1">
+                  <div className="flex gap-2 items-center">
+                    <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
+                      <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
+                    </div>
+                    <Input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="тебе делать нечего?"
+                      className="border-2 border-foreground text-sm flex-1"
+                      maxLength={150}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                    />
+                    <Button
+                      onClick={sendMessage}
+                      className="border-2 border-foreground bg-primary hover:bg-primary/80"
+                      size="sm"
+                    >
+                      <Icon name="Hash" size={20} />
+                    </Button>
                   </div>
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="тебе делать нечего?"
-                    className="border-2 border-foreground text-sm flex-1"
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  />
-                  <Button
-                    onClick={sendMessage}
-                    className="border-2 border-foreground bg-primary hover:bg-primary/80"
-                    size="sm"
-                  >
-                    <Icon name="Hash" size={20} />
-                  </Button>
+                  <div className="text-xs text-muted-foreground text-right">
+                    {newMessage.length}/150
+                  </div>
                 </div>
               </div>
             </div>
