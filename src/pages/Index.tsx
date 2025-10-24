@@ -100,9 +100,9 @@ const Index = () => {
       isSystemMessage: true,
     };
     
-    const updatedMessages = [...messages, systemMessage];
+    const updatedMessages = [systemMessage, ...messages];
     if (updatedMessages.length > 30) {
-      updatedMessages.shift();
+      updatedMessages.pop();
     }
     setMessages(updatedMessages);
     
@@ -122,9 +122,9 @@ const Index = () => {
         isSystemMessage: true,
       };
       
-      const updatedMessages = [...messages, systemMessage];
+      const updatedMessages = [systemMessage, ...messages];
       if (updatedMessages.length > 30) {
-        updatedMessages.shift();
+        updatedMessages.pop();
       }
       setMessages(updatedMessages);
       
@@ -147,9 +147,9 @@ const Index = () => {
       isSystemMessage: true,
     };
     
-    const updatedMessages = [...messages, systemMessage];
+    const updatedMessages = [systemMessage, ...messages];
     if (updatedMessages.length > 30) {
-      updatedMessages.shift();
+      updatedMessages.pop();
     }
     setMessages(updatedMessages);
     
@@ -206,7 +206,7 @@ const Index = () => {
     };
     
     if (currentRoom?.id === room.id) {
-      setMessages([...messages, knockMessage]);
+      setMessages([knockMessage, ...messages]);
     }
   };
   
@@ -281,9 +281,9 @@ const Index = () => {
         isReply: !!replyingTo,
         replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
       };
-      const updatedMessages = [...messages, message];
+      const updatedMessages = [message, ...messages];
       if (updatedMessages.length > 30) {
-        updatedMessages.shift();
+        updatedMessages.pop();
       }
       setMessages(updatedMessages);
       setNewMessage('');
