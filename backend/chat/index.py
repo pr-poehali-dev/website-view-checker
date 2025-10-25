@@ -36,7 +36,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if method == 'GET':
             if path == 'accounts':
-                cur.execute('SELECT * FROM accounts ORDER BY created_at')
+                cur.execute('''
+                    SELECT id, password, username, role, avatar, 
+                           bg_color as "bgColor", 
+                           created_at as "createdAt"
+                    FROM accounts 
+                    ORDER BY created_at
+                ''')
                 accounts = cur.fetchall()
                 return {
                     'statusCode': 200,
@@ -46,7 +52,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             elif path == 'rooms':
                 cur.execute('''
-                    SELECT r.*, 
+                    SELECT r.id, r.name, r.description, r.theme, r.badge, r.password,
+                           r.max_participants as "maxParticipants",
+                           r.current_participants as "currentParticipants",
+                           r.is_adult as "is_adult",
+                           r.is_locked as "is_locked", 
+                           r.is_private as "is_private",
+                           r.creator_id as "creatorId",
+                           r.creator_username as "creatorUsername",
+                           r.created_at as "createdAt",
                            COALESCE(array_agg(
                                json_build_object(
                                    'accountId', rp.account_id,
@@ -63,7 +77,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                    'bannedBy', bu.banned_by,
                                    'bannedAt', bu.banned_at
                                )
-                           ) FILTER (WHERE bu.user_id IS NOT NULL), '{}') as banned_users,
+                           ) FILTER (WHERE bu.user_id IS NOT NULL), '{}') as "bannedUsers",
                            COALESCE(array_agg(
                                json_build_object(
                                    'userId', mu.user_id,
@@ -71,7 +85,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                    'mutedBy', mu.muted_by,
                                    'mutedAt', mu.muted_at
                                )
-                           ) FILTER (WHERE mu.user_id IS NOT NULL), '{}') as muted_users
+                           ) FILTER (WHERE mu.user_id IS NOT NULL), '{}') as "mutedUsers"
                     FROM rooms r
                     LEFT JOIN room_participants rp ON r.id = rp.room_id
                     LEFT JOIN banned_users bu ON r.id = bu.room_id
@@ -89,10 +103,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             elif path == 'messages':
                 room_id = event.get('queryStringParameters', {}).get('roomId', '')
                 cur.execute('''
-                    SELECT * FROM messages 
+                    SELECT id, room_id as "roomId", user_id as "userId", 
+                           username as "user", avatar, bg_color as "bgColor", 
+                           text, image, reply_to as "replyTo", 
+                           created_at as timestamp
+                    FROM messages 
                     WHERE room_id = %s 
-                    ORDER BY created_at DESC 
-                    LIMIT 30
+                    ORDER BY created_at ASC
+                    LIMIT 100
                 ''', (room_id,))
                 messages = cur.fetchall()
                 return {
