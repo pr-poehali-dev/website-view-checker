@@ -94,7 +94,7 @@ export const RoomView = ({
   onManageUser,
   isMuted,
 }: RoomViewProps) => {
-  const isHost = currentRoom.hostUsername === username || currentRoom.creatorUsername === username;
+  const isHost = (currentRoom.hostUsername && currentRoom.hostUsername === username) || currentRoom.creatorUsername === username;
   const canEditBasicInfo = isHost || currentUserRole === 'moderator' || currentUserRole === 'admin' || currentUserRole === 'owner';
   const canEditAllSettings = currentUserRole === 'admin' || currentUserRole === 'owner';
   const canDeleteRoom = currentUserRole === 'admin' || currentUserRole === 'owner';
@@ -135,7 +135,7 @@ export const RoomView = ({
                 {currentRoom.participants.map((participant, idx) => {
                   const isCurrentUserProfile = showUserProfile === participant.username;
                   const canManageUser = isHost || currentUserRole === 'moderator' || currentUserRole === 'admin' || currentUserRole === 'owner';
-                  const isHostBadge = currentRoom.hostUsername === participant.username;
+                  const isHostBadge = currentRoom.hostUsername && currentRoom.hostUsername === participant.username;
                   
                   return (
                     <div key={idx} className="relative">
