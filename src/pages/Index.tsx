@@ -3,6 +3,7 @@ import { LoginView } from '@/components/chat/LoginView';
 import { LobbyView } from '@/components/chat/LobbyView';
 import { RoomView } from '@/components/chat/RoomView';
 import { Modals } from '@/components/chat/Modals';
+import { CreateRoomModal } from '@/components/chat/CreateRoomModal';
 import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge } from '@/components/chat/types';
 import { STANDARD_AVATARS, BACKGROUND_COLORS } from '@/components/chat/types';
 
@@ -53,6 +54,9 @@ const Index = () => {
       maxParticipants: 10,
       participants: [],
       bannedUsers: [],
+      is_adult: false,
+      is_locked: false,
+      is_private: false,
     },
   ]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,8 +66,12 @@ const Index = () => {
   const [newRoomTheme, setNewRoomTheme] = useState<RoomTheme>('general');
   const [newRoomBadge, setNewRoomBadge] = useState<RoomBadge>('none');
   const [newRoomPassword, setNewRoomPassword] = useState('');
-  const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(10);
+  const [newRoomMaxParticipants, setNewRoomMaxParticipants] = useState(5);
+  const [newRoomIsAdult, setNewRoomIsAdult] = useState(false);
+  const [newRoomIsLocked, setNewRoomIsLocked] = useState(false);
+  const [newRoomIsPrivate, setNewRoomIsPrivate] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [knockCooldowns, setKnockCooldowns] = useState<Record<string, number>>({});
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -119,7 +127,7 @@ const Index = () => {
   };
   
   const handlePasswordSubmit = () => {
-    if (passwordRoom && passwordInput === passwordRoom.password) {
+    if (passwordRoom && btoa(passwordInput.toLowerCase()) === passwordRoom.password) {
       const systemMessage: Message = {
         id: Date.now().toString(),
         user: '',
@@ -182,52 +190,93 @@ const Index = () => {
     setCurrentRoom(null);
   };
 
-  const createRoom = () => {
-    if (newRoomName.trim()) {
-      const newRoom: Room = {
-        id: Date.now().toString(),
-        name: newRoomName,
-        description: newRoomDescription || undefined,
-        theme: newRoomTheme,
-        badge: newRoomBadge !== 'none' ? newRoomBadge : undefined,
-        password: newRoomPassword || undefined,
-        creatorId: username,
-        creatorUsername: username,
-        currentParticipants: 1,
-        maxParticipants: newRoomMaxParticipants,
-        participants: [
-          { username, avatar: selectedAvatar }
-        ],
-        bannedUsers: [],
-      };
-      setRooms([...rooms, newRoom]);
-      setNewRoomName('');
-      setNewRoomDescription('');
-      setNewRoomPassword('');
-      setNewRoomTheme('general');
-      setNewRoomBadge('none');
-      setNewRoomMaxParticipants(10);
-      setShowCreateRoom(false);
-      setCurrentRoom(newRoom);
-      setCurrentView('room');
-    }
+  const handleCreateRoom = (data: {
+    name: string;
+    theme: RoomTheme;
+    description: string;
+    capacity: number;
+    is_adult: boolean;
+    is_locked: boolean;
+    is_private: boolean;
+    password: string;
+  }) => {
+    const hashedPassword = data.is_locked && data.password 
+      ? btoa(data.password.toLowerCase()) 
+      : undefined;
+    
+    const newRoom: Room = {
+      id: Date.now().toString(),
+      name: data.name,
+      description: data.description || undefined,
+      theme: data.theme,
+      badge: data.is_adult ? 'adult' : undefined,
+      password: hashedPassword,
+      creatorId: username,
+      creatorUsername: username,
+      currentParticipants: 1,
+      maxParticipants: data.capacity,
+      participants: [
+        { username, avatar: selectedAvatar }
+      ],
+      bannedUsers: [],
+      is_adult: data.is_adult,
+      is_locked: data.is_locked,
+      is_private: data.is_private,
+    };
+    
+    setRooms([...rooms, newRoom]);
+    setShowCreateRoom(false);
+    setCurrentRoom(newRoom);
+    setCurrentView('room');
   };
   
   const deleteRoom = (roomId: string) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `• админ ${username} удалил комнату.`,
+      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isSystemMessage: true,
+    };
+    
+    if (currentRoom?.id === roomId) {
+      const updatedMessages = [systemMessage, ...messages];
+      if (updatedMessages.length > 30) {
+        updatedMessages.pop();
+      }
+      setMessages(updatedMessages);
+    }
+    
     setRooms(rooms.filter(r => r.id !== roomId));
     if (currentRoom?.id === roomId) {
-      leaveRoom();
+      setCurrentView('lobby');
+      setCurrentRoom(null);
     }
   };
 
   const knockOnRoom = (room: Room) => {
+    const now = Date.now();
+    const lastKnock = knockCooldowns[room.id];
+    
+    if (lastKnock && now - lastKnock < 60000) {
+      return;
+    }
+    
+    setKnockCooldowns({ ...knockCooldowns, [room.id]: now });
+    
     const knockMessage: Message = {
       id: Date.now().toString(),
-      user: 'System',
-      avatar: STANDARD_AVATARS[0],
-      bgColor: '#6B7280',
-      text: `${username} стучится в комнату`,
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `• ${username} стучит.`,
       timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isSystemMessage: true,
     };
     
     if (currentRoom?.id === room.id) {
@@ -512,26 +561,17 @@ const Index = () => {
         newAccountRole={newAccountRole}
         setNewAccountRole={setNewAccountRole}
         handleCreateAccount={handleCreateAccount}
-        showCreateRoom={showCreateRoom}
-        setShowCreateRoom={setShowCreateRoom}
-        newRoomName={newRoomName}
-        setNewRoomName={setNewRoomName}
-        newRoomDescription={newRoomDescription}
-        setNewRoomDescription={setNewRoomDescription}
-        newRoomTheme={newRoomTheme}
-        setNewRoomTheme={setNewRoomTheme}
-        newRoomBadge={newRoomBadge}
-        setNewRoomBadge={setNewRoomBadge}
-        newRoomPassword={newRoomPassword}
-        setNewRoomPassword={setNewRoomPassword}
-        newRoomMaxParticipants={newRoomMaxParticipants}
-        setNewRoomMaxParticipants={setNewRoomMaxParticipants}
-        createRoom={createRoom}
         showPasswordPrompt={showPasswordPrompt}
         setShowPasswordPrompt={setShowPasswordPrompt}
         passwordInput={passwordInput}
         setPasswordInput={setPasswordInput}
         handlePasswordSubmit={handlePasswordSubmit}
+      />
+      
+      <CreateRoomModal
+        show={showCreateRoom}
+        onClose={() => setShowCreateRoom(false)}
+        onCreate={handleCreateRoom}
       />
     </div>
   );

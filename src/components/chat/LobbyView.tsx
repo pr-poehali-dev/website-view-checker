@@ -5,6 +5,8 @@ import Icon from '@/components/ui/icon';
 import type { Room, Account, RoomTheme } from './types';
 import { ROOM_THEME_COLORS, ROOM_THEME_NAMES, ROOM_BADGES, STANDARD_AVATARS } from './types';
 
+const BLUR_AVATAR = 'https://cdn.poehali.dev/projects/4d80e05f-ab34-489c-905f-5316a80107b2/files/9117574c-4ba9-4d6c-a779-5ab98c24ae42.jpg';
+
 type LobbyViewProps = {
   username: string;
   selectedAvatar: string;
@@ -135,79 +137,131 @@ export const LobbyView = ({
         <h2 className="text-2xl font-bold mb-6">КОМНАТЫ ({rooms.length})</h2>
         <ScrollArea className="h-[calc(100vh-120px)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rooms.map((room) => (
-              <Card key={room.id} className="border-4 border-foreground bg-black">
-                <CardContent className="p-4 space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div 
-                        className="px-3 py-1 text-xs border-2 border-foreground"
-                        style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
-                      >
-                        {ROOM_THEME_NAMES[room.theme]}
-                      </div>
-                      {room.badge && (
-                        <div className="px-2 py-1 text-sm border-2 border-foreground bg-card">
-                          {ROOM_BADGES[room.badge].icon}
-                        </div>
-                      )}
-                      <h3 className="text-lg font-bold">{room.name}</h3>
-                    </div>
-                    {room.description && (
-                      <p className="text-xs text-cyan-400 mb-1">{room.description}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      {room.currentParticipants}/{room.maxParticipants} УЧАСТНИКОВ
-                    </p>
-                  </div>
-
-                  <div className="mb-4">
-                    <div className="flex gap-2 flex-wrap">
-                      {room.participants.map((participant, idx) => (
-                        <div key={idx} className="flex flex-col items-center gap-1">
-                          <div className="w-12 h-12 border-2 border-foreground">
-                            <img src={participant.avatar} alt={participant.username} className="w-full h-full object-cover" />
+            {rooms.map((room) => {
+              const isParticipant = room.participants.some(p => p.username === username);
+              const isCreator = room.creatorUsername === username;
+              const isPrivateAndNotParticipant = room.is_private && !isParticipant && !isAdmin;
+              const canSeeFullInfo = isParticipant || isAdmin || isCreator || !room.is_private;
+              const isBanned = room.bannedUsers.includes(username);
+              const isFull = room.currentParticipants >= room.maxParticipants;
+              const canKnock = (room.is_locked || room.is_private) && !isParticipant && !isBanned;
+              
+              return (
+                <Card key={room.id} className="border-4 border-foreground bg-black">
+                  <CardContent className="p-4 space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        {canSeeFullInfo && (
+                          <div 
+                            className="px-3 py-1 text-xs border-2 border-foreground"
+                            style={{ backgroundColor: ROOM_THEME_COLORS[room.theme] }}
+                          >
+                            {ROOM_THEME_NAMES[room.theme]}
                           </div>
-                          <span className="text-xs">{participant.username}</span>
-                        </div>
-                      ))}
+                        )}
+                        {room.is_adult && (
+                          <div className="px-2 py-1 text-xs border-2 border-foreground bg-red-900">
+                            18+
+                          </div>
+                        )}
+                        {room.is_locked && (
+                          <div className="px-2 py-1 text-xs border-2 border-foreground bg-yellow-900">
+                            🔒
+                          </div>
+                        )}
+                        {room.is_private && (isAdmin || isCreator || isParticipant) && (
+                          <div className="px-2 py-1 text-xs border-2 border-foreground bg-purple-900">
+                            Приватно
+                          </div>
+                        )}
+                        <h3 className="text-lg font-bold">{room.name}</h3>
+                      </div>
+                      {canSeeFullInfo && room.description && (
+                        <p className="text-xs text-cyan-400 mb-1">{room.description}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        {room.currentParticipants}/{room.maxParticipants} УЧАСТНИКОВ
+                      </p>
                     </div>
-                  </div>
 
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={() => joinRoom(room)}
-                      className="flex-1 border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
-                      disabled={room.currentParticipants >= room.maxParticipants && !isAdmin}
-                    >
-                      {room.password ? '🔒 ' : ''}ВОЙТИ
-                    </Button>
-                    {isAdmin && (
+                    <div className="mb-4">
+                      <div className="flex gap-2 flex-wrap">
+                        {canSeeFullInfo ? (
+                          room.participants.map((participant, idx) => (
+                            <div key={idx} className="flex flex-col items-center gap-1">
+                              <div className="w-12 h-12 border-2 border-foreground">
+                                <img src={participant.avatar} alt={participant.username} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-xs">{participant.username}</span>
+                            </div>
+                          ))
+                        ) : (
+                          Array.from({ length: room.currentParticipants }).map((_, idx) => (
+                            <div key={idx} className="flex flex-col items-center gap-1">
+                              <div className="w-12 h-12 border-2 border-foreground">
+                                <img src={BLUR_AVATAR} alt="user" className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-xs">user</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {!isBanned && !isFull && (
+                        <Button 
+                          onClick={() => joinRoom(room)}
+                          className="flex-1 border-2 border-foreground bg-primary hover:bg-primary/80 text-xs"
+                        >
+                          ВОЙТИ
+                        </Button>
+                      )}
+                      {isFull && !isAdmin && (
+                        <Button 
+                          disabled
+                          className="flex-1 border-2 border-foreground text-xs"
+                        >
+                          ЗАПОЛНЕНО
+                        </Button>
+                      )}
+                      {(isAdmin || isCreator) && (
+                        <Button 
+                          onClick={() => deleteRoom(room.id)}
+                          variant="outline"
+                          className="border-2 border-foreground text-xs bg-red-900"
+                        >
+                          <Icon name="Trash2" size={16} />
+                        </Button>
+                      )}
+                      {canKnock && (
+                        <Button 
+                          onClick={() => knockOnRoom(room)}
+                          variant="outline"
+                          className="flex-1 border-2 border-foreground text-xs"
+                        >
+                          ПОСТУЧАТЬ
+                        </Button>
+                      )}
+                      {isBanned && (
+                        <Button 
+                          variant="outline"
+                          className="flex-1 border-2 border-foreground text-xs"
+                        >
+                          ПИСЬМО
+                        </Button>
+                      )}
                       <Button 
-                        onClick={() => deleteRoom(room.id)}
                         variant="outline"
-                        className="border-2 border-foreground text-xs bg-red-900"
+                        className="border-2 border-foreground text-xs"
                       >
-                        <Icon name="Trash2" size={16} />
+                        <Icon name="Flag" size={16} />
                       </Button>
-                    )}
-                    <Button 
-                      onClick={() => knockOnRoom(room)}
-                      variant="outline"
-                      className="flex-1 border-2 border-foreground text-xs"
-                    >
-                      ПОСТУЧАТЬ
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      className="border-2 border-foreground text-xs"
-                    >
-                      <Icon name="Flag" size={16} />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </ScrollArea>
       </div>
