@@ -24,6 +24,22 @@ type ModalsProps = {
   setNewAccountRole: (value: UserRole) => void;
   handleCreateAccount: () => void;
   
+  showCreateRoom: boolean;
+  setShowCreateRoom: (value: boolean) => void;
+  newRoomName: string;
+  setNewRoomName: (value: string) => void;
+  newRoomDescription: string;
+  setNewRoomDescription: (value: string) => void;
+  newRoomTheme: RoomTheme;
+  setNewRoomTheme: (value: RoomTheme) => void;
+  newRoomBadge: RoomBadge;
+  setNewRoomBadge: (value: RoomBadge) => void;
+  newRoomPassword: string;
+  setNewRoomPassword: (value: string) => void;
+  newRoomMaxParticipants: number;
+  setNewRoomMaxParticipants: (value: number) => void;
+  createRoom: () => void;
+  
   showPasswordPrompt: boolean;
   setShowPasswordPrompt: (value: boolean) => void;
   passwordInput: string;
@@ -48,6 +64,21 @@ export const Modals = ({
   newAccountRole,
   setNewAccountRole,
   handleCreateAccount,
+  showCreateRoom,
+  setShowCreateRoom,
+  newRoomName,
+  setNewRoomName,
+  newRoomDescription,
+  setNewRoomDescription,
+  newRoomTheme,
+  setNewRoomTheme,
+  newRoomBadge,
+  setNewRoomBadge,
+  newRoomPassword,
+  setNewRoomPassword,
+  newRoomMaxParticipants,
+  setNewRoomMaxParticipants,
+  createRoom,
   showPasswordPrompt,
   setShowPasswordPrompt,
   passwordInput,
@@ -179,6 +210,112 @@ export const Modals = ({
               <p className="text-xs text-muted-foreground">
                 ID будет сгенерирован автоматически
               </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showCreateRoom && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md border-4 border-foreground bg-black">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                СОЗДАТЬ КОМНАТУ
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCreateRoom(false)}
+                  className="text-xs"
+                >
+                  <Icon name="X" size={20} />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs mb-2">НАЗВАНИЕ:</p>
+                <Input
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  placeholder="МОЯ КОМНАТА"
+                  className="border-2 border-foreground text-xs"
+                  maxLength={30}
+                />
+              </div>
+              <div>
+                <p className="text-xs mb-2">ОПИСАНИЕ (ОПЦИОНАЛЬНО):</p>
+                <Input
+                  value={newRoomDescription}
+                  onChange={(e) => setNewRoomDescription(e.target.value)}
+                  placeholder="Описание комнаты"
+                  className="border-2 border-foreground text-xs"
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <p className="text-xs mb-2">ТЕМА:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['general', 'tech', 'gaming', 'music', 'art', 'sports'] as RoomTheme[]).map((theme) => (
+                    <button
+                      key={theme}
+                      onClick={() => setNewRoomTheme(theme)}
+                      className={`p-3 text-xs border-2 transition-all ${
+                        newRoomTheme === theme
+                          ? 'border-primary bg-primary/20'
+                          : 'border-foreground bg-card hover:bg-muted'
+                      }`}
+                    >
+                      {theme.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs mb-2">ЗНАЧОК:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(ROOM_BADGES) as RoomBadge[]).map((badge) => (
+                    <button
+                      key={badge}
+                      onClick={() => setNewRoomBadge(badge)}
+                      className={`p-3 text-xs border-2 transition-all ${
+                        newRoomBadge === badge
+                          ? 'border-primary bg-primary/20'
+                          : 'border-foreground bg-card hover:bg-muted'
+                      }`}
+                    >
+                      {ROOM_BADGES[badge].icon} {ROOM_BADGES[badge].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs mb-2">ПАРОЛЬ (ОПЦИОНАЛЬНО):</p>
+                <Input
+                  type="password"
+                  value={newRoomPassword}
+                  onChange={(e) => setNewRoomPassword(e.target.value)}
+                  placeholder="Оставьте пустым для открытой комнаты"
+                  className="border-2 border-foreground text-xs"
+                />
+              </div>
+              <div>
+                <p className="text-xs mb-2">МАКС. УЧАСТНИКОВ: {newRoomMaxParticipants}</p>
+                <input
+                  type="range"
+                  min="2"
+                  max="50"
+                  value={newRoomMaxParticipants}
+                  onChange={(e) => setNewRoomMaxParticipants(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <Button
+                onClick={createRoom}
+                disabled={!newRoomName.trim()}
+                className="w-full border-2 border-foreground bg-primary hover:bg-primary/80 text-xs disabled:opacity-50"
+              >
+                СОЗДАТЬ
+              </Button>
             </CardContent>
           </Card>
         </div>

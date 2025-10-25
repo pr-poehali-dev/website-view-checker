@@ -1,8 +1,6 @@
-export type RoomTheme = 'general' | 'topic' | 'roleplay' | 'gaming' | 'cinema';
+export type RoomTheme = 'general' | 'tech' | 'gaming' | 'music' | 'art' | 'sports';
 export type RoomBadge = 'adult' | 'music' | 'video' | 'none';
-export type UserRole = 'guest' | 'user' | 'moderator' | 'admin' | 'owner';
-export type SanctionType = 'kick' | 'mute' | 'ban';
-export type SanctionMethod = 'username' | 'ip' | 'mac' | 'id';
+export type UserRole = 'guest' | 'user' | 'moderator' | 'admin';
 
 export type Account = {
   id: string;
@@ -16,26 +14,6 @@ export type Account = {
 export type RoomParticipant = {
   username: string;
   avatar: string;
-  role?: UserRole;
-  accountId?: string;
-  bgColor?: string;
-  isMuted?: boolean;
-};
-
-export type BannedUser = {
-  username?: string;
-  ip?: string;
-  mac?: string;
-  accountId?: string;
-  bannedBy: string;
-  reason?: string;
-  timestamp: number;
-};
-
-export type MutedUser = {
-  username: string;
-  mutedBy: string;
-  timestamp: number;
 };
 
 export type Room = {
@@ -47,15 +25,10 @@ export type Room = {
   password?: string;
   creatorId: string;
   creatorUsername: string;
-  hostUsername?: string;
   currentParticipants: number;
   maxParticipants: number;
   participants: RoomParticipant[];
-  bannedUsers: BannedUser[];
-  mutedUsers: MutedUser[];
-  is_adult: boolean;
-  is_locked: boolean;
-  is_private: boolean;
+  bannedUsers: string[];
 };
 
 export type Message = {
@@ -68,12 +41,6 @@ export type Message = {
   isReply?: boolean;
   replyTo?: string;
   isSystemMessage?: boolean;
-  imageUrl?: string;
-};
-
-export type TypingUser = {
-  username: string;
-  lastTyping: number;
 };
 
 export const STANDARD_AVATARS = [
@@ -95,18 +62,20 @@ export const BACKGROUND_COLORS = [
 
 export const ROOM_THEME_COLORS: Record<RoomTheme, string> = {
   general: '#6B7280',
-  topic: '#3B82F6',
-  roleplay: '#8B5CF6',
-  gaming: '#EC4899',
-  cinema: '#F59E0B',
+  tech: '#3B82F6',
+  gaming: '#8B5CF6',
+  music: '#EC4899',
+  art: '#F59E0B',
+  sports: '#10B981',
 };
 
 export const ROOM_THEME_NAMES: Record<RoomTheme, string> = {
-  general: 'Общение',
-  topic: 'На тему',
-  roleplay: 'RolePlay',
-  gaming: 'Игры',
-  cinema: 'Кино',
+  general: 'ОБЩЕЕ',
+  tech: 'ТЕХНО',
+  gaming: 'ИГРЫ',
+  music: 'МУЗЫКА',
+  art: 'ИСКУССТВО',
+  sports: 'СПОРТ',
 };
 
 export const ROOM_BADGES: Record<RoomBadge, { icon: string; label: string }> = {
