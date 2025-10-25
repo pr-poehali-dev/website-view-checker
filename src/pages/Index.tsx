@@ -979,20 +979,23 @@ const Index = () => {
       {currentView === 'lobby' && (
         <LobbyView
           username={username}
-          rooms={rooms}
-          onJoinRoom={handleJoinRoom}
-          onCreateRoom={() => setShowCreateRoom(true)}
-          onKnock={handleKnock}
-          knockCooldowns={knockCooldowns}
-          onBack={() => setCurrentView('login')}
+          selectedAvatar={useCustomAvatar ? customAvatar : selectedAvatar}
+          selectedBgColor={selectedBgColor}
           isAuthenticated={isAuthenticated}
           currentAccount={currentAccount}
-          onAuthClick={() => setShowAuthModal(true)}
-          onLogout={handleLogout}
-          onOpenModeration={handleOpenModeration}
-          onOpenAdmin={() => setShowAdminPanel(true)}
-          onComplaint={handleComplaint}
-          canAccessRoom={canAccessRoom}
+          isAdmin={currentAccount?.role === 'admin' || currentAccount?.role === 'owner'}
+          rooms={rooms}
+          accounts={accounts}
+          setShowCreateAccountModal={setShowCreateAccountModal}
+          handleLogout={handleLogout}
+          setCurrentView={setCurrentView}
+          setShowCreateRoom={setShowCreateRoom}
+          joinRoom={handleJoinRoom}
+          deleteRoom={handleDeleteRoom}
+          knockOnRoom={handleKnock}
+          onComplainRoom={handleComplaint}
+          onShowModerationPanel={handleOpenModeration}
+          onShowAdminPanel={() => setShowAdminPanel(true)}
         />
       )}
 
