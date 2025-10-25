@@ -3,22 +3,26 @@ const API_URL = 'https://functions.poehali.dev/4ad190ee-17bf-4a46-9890-19699a441
 export const chatApi = {
   async getAccounts() {
     const response = await fetch(`${API_URL}?path=accounts`);
-    return response.json();
+    const data = await response.json();
+    return { accounts: data };
   },
 
   async getRooms() {
     const response = await fetch(`${API_URL}?path=rooms`);
-    return response.json();
+    const data = await response.json();
+    return { rooms: data };
   },
 
   async getMessages(roomId: string) {
     const response = await fetch(`${API_URL}?path=messages&roomId=${roomId}`);
-    return response.json();
+    const data = await response.json();
+    return { messages: data };
   },
 
   async getComplaints() {
     const response = await fetch(`${API_URL}?path=complaints`);
-    return response.json();
+    const data = await response.json();
+    return { complaints: data };
   },
 
   async auth(id: string, password: string) {
