@@ -10,6 +10,7 @@ import { AdminPanel } from '@/components/chat/AdminPanel';
 import { ComplaintModal } from '@/components/chat/ComplaintModal';
 import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge, TypingUser, RoomParticipant, BannedUser, MutedUser } from '@/components/chat/types';
 import { STANDARD_AVATARS, BACKGROUND_COLORS } from '@/components/chat/types';
+import { chatApi } from '@/lib/chatApi';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'login' | 'lobby' | 'room' | 'create-room'>('login');
@@ -114,6 +115,74 @@ const Index = () => {
   const [complaintRoom, setComplaintRoom] = useState<Room | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
 
+  // Load initial data on component mount
+  useEffect(() => {
+    loadAccounts();
+    loadRooms();
+  }, []);
+
+  // Auto-refresh rooms list every 2 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadRooms();
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-refresh messages every 1 second when in a room
+  useEffect(() => {
+    if (currentRoom && currentView === 'room') {
+      const interval = setInterval(() => {
+        loadMessages(currentRoom.id);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentRoom, currentView]);
+
+  const loadAccounts = async () => {
+    try {
+      const data = await chatApi.getAccounts();
+      if (data.accounts) {
+        setAccounts(data.accounts);
+      }
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+    }
+  };
+
+  const loadRooms = async () => {
+    try {
+      const data = await chatApi.getRooms();
+      if (data.rooms) {
+        setRooms(data.rooms);
+      }
+    } catch (error) {
+      console.error('Failed to load rooms:', error);
+    }
+  };
+
+  const loadMessages = async (roomId: string) => {
+    try {
+      const data = await chatApi.getMessages(roomId);
+      if (data.messages) {
+        setMessages(data.messages);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  };
+
+  const loadComplaints = async () => {
+    try {
+      const data = await chatApi.getComplaints();
+      if (data.complaints) {
+        setComplaints(data.complaints);
+      }
+    } catch (error) {
+      console.error('Failed to load complaints:', error);
+    }
+  };
+
   const startInactivityTimer = () => {
     setHasBeenWarned(false);
     setLastActivity(Date.now());
@@ -152,8 +221,8 @@ const Index = () => {
     }
   };
   
-  const handleInactivityKick = () => {
-    if (!currentRoom) return;
+  const handleInactivityKick = async () => {
+    if (!currentRoom || !currentAccount) return;
     
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
@@ -177,12 +246,13 @@ const Index = () => {
     }
     setMessages(updatedMessages);
     
-    const updatedRoom = {
-      ...currentRoom,
-      participants: currentRoom.participants.filter(p => p.username !== username),
-      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
-    };
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    // Leave room via API
+    try {
+      await chatApi.leaveRoom(currentRoom.id, currentAccount.id);
+      await loadRooms();
+    } catch (error) {
+      console.error('Failed to leave room on inactivity:', error);
+    }
     
     setCurrentView('lobby');
     setCurrentRoom(null);
@@ -212,1180 +282,749 @@ const Index = () => {
 
   const canAccessRoom = (room: Room): boolean => {
     const role = getUserRole();
-    if (role === 'owner') return true;
-    if (role === 'admin' || role === 'moderator') return true;
+    
+    if (role === 'owner' || role === 'admin') {
+      return true;
+    }
+    
+    if (room.is_adult && role === 'guest') {
+      return false;
+    }
+    
+    if (room.is_locked && room.creatorId !== currentAccount?.id) {
+      return false;
+    }
+    
+    const isBanned = room.bannedUsers?.some(ban => ban.userId === currentAccount?.id);
+    if (isBanned) {
+      return false;
+    }
+    
     return true;
   };
 
-  const isUserBanned = (room: Room, username: string): boolean => {
-    return room.bannedUsers.some(bu => bu.username?.toLowerCase() === username.toLowerCase());
+  const handleLogin = async () => {
+    if (username.trim()) {
+      setCurrentView('lobby');
+    }
   };
 
-  const joinRoom = (room: Room) => {
-    const role = getUserRole();
-    
-    if (isUserBanned(room, username) && role !== 'owner') {
-      alert('Вы забанены в этой комнате');
+  const handleAuth = async () => {
+    try {
+      const result = await chatApi.auth(authId, authPassword);
+      
+      if (result.success && result.account) {
+        setIsAuthenticated(true);
+        setCurrentAccount(result.account);
+        setShowAuthModal(false);
+        setAuthId('');
+        setAuthPassword('');
+        await loadAccounts();
+      } else {
+        alert('Неверный ID или пароль');
+      }
+    } catch (error) {
+      console.error('Auth failed:', error);
+      alert('Ошибка аутентификации');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentAccount(null);
+  };
+
+  const handleCreateAccount = async () => {
+    if (newAccountUsername.trim() && newAccountPassword.trim()) {
+      try {
+        const result = await chatApi.createAccount({
+          username: newAccountUsername,
+          password: newAccountPassword,
+          role: newAccountRole,
+          avatar: STANDARD_AVATARS[0],
+          bgColor: BACKGROUND_COLORS[0]
+        });
+
+        if (result.success) {
+          await loadAccounts();
+          setNewAccountUsername('');
+          setNewAccountPassword('');
+          setNewAccountRole('user');
+          setShowCreateAccountModal(false);
+        } else {
+          alert('Ошибка создания аккаунта');
+        }
+      } catch (error) {
+        console.error('Failed to create account:', error);
+        alert('Ошибка создания аккаунта');
+      }
+    }
+  };
+
+  const handleCreateRoom = async () => {
+    if (newRoomName.trim()) {
+      try {
+        const result = await chatApi.createRoom({
+          name: newRoomName,
+          description: newRoomDescription,
+          theme: newRoomTheme,
+          badge: newRoomBadge,
+          password: newRoomPassword,
+          maxParticipants: newRoomMaxParticipants,
+          is_adult: newRoomIsAdult,
+          is_locked: newRoomIsLocked,
+          is_private: newRoomIsPrivate,
+          creatorId: currentAccount?.id || 'guest',
+          creatorUsername: username
+        });
+
+        if (result.success) {
+          await loadRooms();
+          setNewRoomName('');
+          setNewRoomDescription('');
+          setNewRoomTheme('general');
+          setNewRoomBadge('none');
+          setNewRoomPassword('');
+          setNewRoomMaxParticipants(5);
+          setNewRoomIsAdult(false);
+          setNewRoomIsLocked(false);
+          setNewRoomIsPrivate(false);
+          setShowCreateRoom(false);
+        } else {
+          alert('Ошибка создания комнаты');
+        }
+      } catch (error) {
+        console.error('Failed to create room:', error);
+        alert('Ошибка создания комнаты');
+      }
+    }
+  };
+
+  const handleJoinRoom = async (room: Room) => {
+    if (!canAccessRoom(room)) {
+      if (room.bannedUsers?.some(ban => ban.userId === currentAccount?.id)) {
+        alert('Вы забанены в этой комнате');
+        return;
+      }
+      if (room.is_adult && getUserRole() === 'guest') {
+        alert('Эта комната только для зарегистрированных пользователей (18+)');
+        return;
+      }
+      if (room.is_locked) {
+        alert('Эта комната закрыта владельцем');
+        return;
+      }
       return;
     }
-    
-    if (room.currentParticipants >= room.maxParticipants && role !== 'admin' && role !== 'moderator' && role !== 'owner') {
-      return;
-    }
-    
-    if (room.password && role !== 'admin' && role !== 'moderator' && role !== 'owner') {
+
+    if (room.password) {
       setPasswordRoom(room);
       setShowPasswordPrompt(true);
       return;
     }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const roleLabel = role === 'moderator' ? 'модератор' : role === 'admin' ? 'админ' : '';
-    const entryText = roleLabel ? `${roleLabel} ${username} в чате.` : `${username} в чате.`;
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: entryText,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    const isAlreadyParticipant = room.participants.some(p => p.username === username);
-    const updatedRoom = isAlreadyParticipant ? room : {
-      ...room,
-      participants: [...room.participants, { 
-        username, 
-        avatar: selectedAvatar,
-        role: currentAccount?.role,
-        accountId: currentAccount?.id,
-        bgColor: selectedBgColor
-      }],
-      currentParticipants: room.currentParticipants + 1
-    };
-    
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === room.id ? updatedRoom : r));
-    setCurrentView('room');
-    startInactivityTimer();
+
+    await joinRoomDirect(room);
   };
-  
-  const handlePasswordSubmit = () => {
-    if (passwordRoom && btoa(passwordInput.toLowerCase()) === passwordRoom.password) {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const seconds = now.getSeconds().toString().padStart(2, '0');
-      const timestamp = `${hours}.${minutes}.${seconds}`;
-      
-      const systemMessage: Message = {
-        id: Date.now().toString(),
-        user: '',
-        avatar: '',
-        bgColor: '',
-        text: `${username} в чате.`,
-        timestamp,
-        isSystemMessage: true,
-      };
-      
-      const updatedMessages = [systemMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
+
+  const joinRoomDirect = async (room: Room) => {
+    if (room.currentParticipants >= room.maxParticipants) {
+      alert('Комната заполнена');
+      return;
+    }
+
+    try {
+      const avatar = useCustomAvatar ? customAvatar : selectedAvatar;
+      const result = await chatApi.joinRoom(
+        room.id,
+        currentAccount?.id || 'guest',
+        username,
+        avatar,
+        selectedBgColor,
+        currentAccount?.role
+      );
+
+      if (result.success) {
+        await loadRooms();
+        await loadMessages(room.id);
+        
+        // Find updated room
+        const roomsData = await chatApi.getRooms();
+        const updatedRoom = roomsData.rooms?.find((r: Room) => r.id === room.id);
+        
+        setCurrentRoom(updatedRoom || room);
+        setCurrentView('room');
+        setMessages([]);
+        startInactivityTimer();
+      } else {
+        alert('Ошибка при входе в комнату');
       }
-      setMessages(updatedMessages);
-      
-      const isAlreadyParticipant = passwordRoom.participants.some(p => p.username === username);
-      const updatedRoom = isAlreadyParticipant ? passwordRoom : {
-        ...passwordRoom,
-        participants: [...passwordRoom.participants, { 
-          username, 
-          avatar: selectedAvatar,
-          role: currentAccount?.role,
-          accountId: currentAccount?.id,
-          bgColor: selectedBgColor
-        }],
-        currentParticipants: passwordRoom.currentParticipants + 1
-      };
-      
-      setCurrentRoom(updatedRoom);
-      setRooms(rooms.map(r => r.id === passwordRoom.id ? updatedRoom : r));
-      setCurrentView('room');
+    } catch (error) {
+      console.error('Failed to join room:', error);
+      alert('Ошибка при входе в комнату');
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (passwordRoom && passwordInput === passwordRoom.password) {
       setShowPasswordPrompt(false);
-      setPasswordRoom(null);
       setPasswordInput('');
-      startInactivityTimer();
+      await joinRoomDirect(passwordRoom);
+    } else {
+      alert('Неверный пароль');
     }
   };
 
-  const leaveRoom = () => {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const role = getUserRole();
-    const roleLabel = role === 'moderator' ? 'модератор' : role === 'admin' ? 'админ' : '';
-    const exitText = roleLabel ? `${roleLabel} ${username} покинул чат.` : `${username} покинул чат.`;
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: exitText,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    if (currentRoom) {
-      const updatedRoom = {
-        ...currentRoom,
-        participants: currentRoom.participants.filter(p => p.username !== username),
-        currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
-      };
-      setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-    }
-    
-    if (inactivityTimer) clearTimeout(inactivityTimer);
-    if (warningTimer) clearTimeout(warningTimer);
-    setShowInactivityWarning(false);
-    setHasBeenWarned(false);
-    
-    setCurrentView('lobby');
-    setCurrentRoom(null);
-  };
-
-  const handleCreateRoom = (data: {
-    name: string;
-    theme: RoomTheme;
-    description: string;
-    capacity: number;
-    is_adult: boolean;
-    is_locked: boolean;
-    is_private: boolean;
-    password: string;
-  }) => {
-    const hashedPassword = data.is_locked && data.password 
-      ? btoa(data.password.toLowerCase()) 
-      : undefined;
-    
-    const newRoom: Room = {
-      id: Date.now().toString(),
-      name: data.name,
-      description: data.description || undefined,
-      theme: data.theme,
-      badge: data.is_adult ? 'adult' : undefined,
-      password: hashedPassword,
-      creatorId: username,
-      creatorUsername: username,
-      currentParticipants: 1,
-      maxParticipants: data.capacity,
-      participants: [
-        { 
-          username, 
-          avatar: selectedAvatar,
-          role: currentAccount?.role,
-          accountId: currentAccount?.id,
-          bgColor: selectedBgColor
-        }
-      ],
-      bannedUsers: [],
-      mutedUsers: [],
-      hostUsername: username,
-      is_adult: data.is_adult,
-      is_locked: data.is_locked,
-      is_private: data.is_private,
-    };
-    
-    setRooms([...rooms, newRoom]);
-    setShowCreateRoom(false);
-    setCurrentRoom(newRoom);
-    setCurrentView('room');
-    startInactivityTimer();
-  };
-  
-  const handleKick = (targetUsername: string) => {
-    if (!currentRoom) return;
-    
-    const role = getUserRole();
-    const isHost = currentRoom.hostUsername === username;
-    
-    if (!isHost && role !== 'moderator' && role !== 'admin' && role !== 'owner') {
+  const handleLeaveRoom = async () => {
+    if (!currentRoom || !currentAccount) {
+      setCurrentView('lobby');
+      setCurrentRoom(null);
       return;
     }
-    
-    const targetParticipant = currentRoom.participants.find(p => p.username === targetUsername);
-    if (targetParticipant?.role === 'owner') {
-      setCommandError('Нельзя кикнуть владельца.');
-      setTimeout(() => setCommandError(''), 3000);
-      return;
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : role === 'moderator' ? 'модератор' : isHost ? 'хост' : '';
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} выгнал ${targetUsername}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    const updatedRoom = {
-      ...currentRoom,
-      participants: currentRoom.participants.filter(p => p.username !== targetUsername),
-      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
-    };
-    
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-    
-    setSanctionNotificationText(`${roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1)} ${username} выгнал вас.`);
-    setShowSanctionNotification(true);
-    setTimeout(() => setShowSanctionNotification(false), 3000);
-  };
 
-  const handleMute = (targetUsername: string) => {
-    if (!currentRoom) return;
-    
-    const role = getUserRole();
-    const isHost = currentRoom.hostUsername === username;
-    
-    if (!isHost && role !== 'moderator' && role !== 'admin' && role !== 'owner') {
-      return;
-    }
-    
-    const targetParticipant = currentRoom.participants.find(p => p.username === targetUsername);
-    if (targetParticipant?.role === 'owner') {
-      setCommandError('Нельзя замутить владельца.');
-      setTimeout(() => setCommandError(''), 3000);
-      return;
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : role === 'moderator' ? 'модератор' : isHost ? 'хост' : '';
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} замутил ${targetUsername}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    const mutedUser = {
-      username: targetUsername,
-      mutedBy: username,
-      timestamp: Date.now()
-    };
-    
-    const updatedRoom = {
-      ...currentRoom,
-      mutedUsers: [...currentRoom.mutedUsers, mutedUser],
-      participants: currentRoom.participants.map(p => 
-        p.username === targetUsername ? { ...p, isMuted: true } : p
-      )
-    };
-    
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-    
-    setSanctionNotificationText(`${roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1)} ${username} замутил вас.`);
-    setShowSanctionNotification(true);
-    setTimeout(() => setShowSanctionNotification(false), 3000);
-  };
-
-  const handleBan = (targetUsername: string) => {
-    if (!currentRoom) return;
-    
-    const role = getUserRole();
-    const isHost = currentRoom.hostUsername === username;
-    
-    if (!isHost && role !== 'moderator' && role !== 'admin' && role !== 'owner') {
-      return;
-    }
-    
-    const targetParticipant = currentRoom.participants.find(p => p.username === targetUsername);
-    if (targetParticipant?.role === 'owner') {
-      setCommandError('Нельзя забанить владельца.');
-      setTimeout(() => setCommandError(''), 3000);
-      return;
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : role === 'moderator' ? 'модератор' : isHost ? 'хост' : '';
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} забанил ${targetUsername}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    const bannedUser = {
-      username: targetUsername,
-      bannedBy: username,
-      timestamp: Date.now()
-    };
-    
-    const updatedRoom = {
-      ...currentRoom,
-      bannedUsers: [...currentRoom.bannedUsers, bannedUser],
-      participants: currentRoom.participants.filter(p => p.username !== targetUsername),
-      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
-    };
-    
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-    
-    setSanctionNotificationText(`${roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1)} ${username} забанил вас.`);
-    setShowSanctionNotification(true);
-    setTimeout(() => setShowSanctionNotification(false), 3000);
-  };
-
-  const handleTransferHost = (targetUsername: string) => {
-    if (!currentRoom) return;
-    
-    if (currentRoom.hostUsername !== username) {
-      return;
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• хост ${username} передал хоста ${targetUsername}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    const updatedMessages = [systemMessage, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    
-    const updatedRoom = {
-      ...currentRoom,
-      hostUsername: targetUsername
-    };
-    
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-  };
-
-  const handleUnban = (roomId: string, bannedUser: BannedUser) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-
-    const role = getUserRole();
-    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : 'модератор';
-
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} разбанил ${bannedUser.username}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-
-    if (currentRoom?.id === roomId) {
-      const updatedMessages = [systemMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
-      }
-      setMessages(updatedMessages);
-    }
-
-    const updatedRoom = {
-      ...room,
-      bannedUsers: room.bannedUsers.filter(bu => bu.username !== bannedUser.username)
-    };
-
-    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
-    if (currentRoom?.id === roomId) {
-      setCurrentRoom(updatedRoom);
-    }
-  };
-
-  const handleUnmute = (roomId: string, mutedUser: MutedUser) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-
-    const role = getUserRole();
-    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : 'модератор';
-
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} размутил ${mutedUser.username}.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-
-    if (currentRoom?.id === roomId) {
-      const updatedMessages = [systemMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
-      }
-      setMessages(updatedMessages);
-    }
-
-    const updatedRoom = {
-      ...room,
-      mutedUsers: room.mutedUsers.filter(mu => mu.username !== mutedUser.username),
-      participants: room.participants.map(p =>
-        p.username === mutedUser.username ? { ...p, isMuted: false } : p
-      )
-    };
-
-    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
-    if (currentRoom?.id === roomId) {
-      setCurrentRoom(updatedRoom);
-    }
-  };
-
-  const handleUpdateRoom = (roomId: string, updates: Partial<Room>) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    const updatedRoom = { ...room, ...updates };
-    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
-    
-    if (currentRoom?.id === roomId) {
-      setCurrentRoom(updatedRoom);
-    }
-  };
-
-  const handleCreateComplaint = (target: string, description: string, images: string[]) => {
-    if (!complaintRoom) return;
-
-    const newComplaint: Complaint = {
-      id: Date.now().toString(),
-      reporterUsername: username,
-      targetUsername: target,
-      description,
-      images,
-      timestamp: Date.now(),
-      status: 'accepted',
-      roomId: complaintRoom.id,
-    };
-
-    setComplaints([...complaints, newComplaint]);
-    setComplaintRoom(null);
-  };
-
-  const handleUpdateComplaintStatus = (complaintId: string, status: 'accepted' | 'in_review') => {
-    setComplaints(complaints.map(c => c.id === complaintId ? { ...c, status } : c));
-  };
-
-  const deleteRoom = (roomId: string) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-    
-    const role = getUserRole();
-    if (role !== 'admin' && role !== 'owner') {
-      return;
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    const roleLabel = role === 'owner' ? 'владелец' : 'админ';
-    
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${roleLabel} ${username} удалил комнату.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    if (currentRoom?.id === roomId) {
-      const updatedMessages = [systemMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
-      }
-      setMessages(updatedMessages);
-    }
-    
-    setRooms(rooms.filter(r => r.id !== roomId));
-    if (currentRoom?.id === roomId) {
+    try {
+      await chatApi.leaveRoom(currentRoom.id, currentAccount.id);
+      await loadRooms();
+      
+      setCurrentView('lobby');
+      setCurrentRoom(null);
+      
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (warningTimer) clearTimeout(warningTimer);
+      setShowInactivityWarning(false);
+    } catch (error) {
+      console.error('Failed to leave room:', error);
       setCurrentView('lobby');
       setCurrentRoom(null);
     }
   };
 
-  const knockOnRoom = (room: Room) => {
-    const now = Date.now();
-    const lastKnock = knockCooldowns[room.id];
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() && !attachedImage) return;
+    if (!currentRoom || !currentAccount) return;
+
+    const isMuted = currentRoom.mutedUsers?.some(mute => mute.userId === currentAccount.id);
+    if (isMuted) {
+      alert('Вы в муте и не можете отправлять сообщения');
+      return;
+    }
+
+    resetInactivityTimer();
+
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+
+    const messageText = newMessage.trim();
     
-    if (lastKnock && now - lastKnock < 60000) {
+    if (messageText.startsWith('/')) {
+      await handleCommand(messageText);
+      return;
+    }
+
+    try {
+      const avatar = useCustomAvatar ? customAvatar : selectedAvatar;
+      const result = await chatApi.sendMessage({
+        roomId: currentRoom.id,
+        userId: currentAccount.id,
+        user: username,
+        avatar: avatar,
+        bgColor: selectedBgColor,
+        text: messageText,
+        timestamp,
+        image: attachedImage,
+        replyTo: replyingTo ? {
+          user: replyingTo.user,
+          text: replyingTo.text
+        } : undefined
+      });
+
+      if (result.success) {
+        await loadMessages(currentRoom.id);
+        setNewMessage('');
+        setAttachedImage(null);
+        setReplyingTo(null);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleCommand = async (command: string) => {
+    if (!currentRoom || !currentAccount) return;
+
+    const parts = command.split(' ');
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+
+    const userRole = getUserRole();
+    const isRoomOwner = currentRoom.creatorId === currentAccount.id;
+    const canModerate = userRole === 'owner' || userRole === 'admin' || isRoomOwner;
+
+    switch (cmd) {
+      case '/ban':
+        if (canModerate && args.length > 0) {
+          const targetUsername = args[0];
+          const participant = currentRoom.participants.find(p => p.username === targetUsername);
+          
+          if (participant) {
+            try {
+              await chatApi.banUser(currentRoom.id, participant.accountId || participant.username, participant.username, username);
+              await loadRooms();
+              await loadMessages(currentRoom.id);
+              setNewMessage('');
+            } catch (error) {
+              console.error('Failed to ban user:', error);
+              setCommandError('Ошибка бана пользователя');
+            }
+          } else {
+            setCommandError('Пользователь не найден');
+          }
+        } else {
+          setCommandError('Недостаточно прав или неверные параметры');
+        }
+        break;
+
+      case '/unban':
+        if (canModerate && args.length > 0) {
+          const targetUsername = args[0];
+          const bannedUser = currentRoom.bannedUsers?.find(b => b.username === targetUsername);
+          
+          if (bannedUser) {
+            try {
+              await chatApi.unbanUser(currentRoom.id, bannedUser.userId);
+              await loadRooms();
+              await loadMessages(currentRoom.id);
+              setNewMessage('');
+            } catch (error) {
+              console.error('Failed to unban user:', error);
+              setCommandError('Ошибка разбана пользователя');
+            }
+          } else {
+            setCommandError('Пользователь не найден в списке забаненных');
+          }
+        } else {
+          setCommandError('Недостаточно прав или неверные параметры');
+        }
+        break;
+
+      case '/mute':
+        if (canModerate && args.length > 0) {
+          const targetUsername = args[0];
+          const participant = currentRoom.participants.find(p => p.username === targetUsername);
+          
+          if (participant) {
+            try {
+              await chatApi.muteUser(currentRoom.id, participant.accountId || participant.username, participant.username, username);
+              await loadRooms();
+              await loadMessages(currentRoom.id);
+              setNewMessage('');
+            } catch (error) {
+              console.error('Failed to mute user:', error);
+              setCommandError('Ошибка мута пользователя');
+            }
+          } else {
+            setCommandError('Пользователь не найден');
+          }
+        } else {
+          setCommandError('Недостаточно прав или неверные параметры');
+        }
+        break;
+
+      case '/unmute':
+        if (canModerate && args.length > 0) {
+          const targetUsername = args[0];
+          const mutedUser = currentRoom.mutedUsers?.find(m => m.username === targetUsername);
+          
+          if (mutedUser) {
+            try {
+              await chatApi.unmuteUser(currentRoom.id, mutedUser.userId);
+              await loadRooms();
+              await loadMessages(currentRoom.id);
+              setNewMessage('');
+            } catch (error) {
+              console.error('Failed to unmute user:', error);
+              setCommandError('Ошибка размута пользователя');
+            }
+          } else {
+            setCommandError('Пользователь не найден в списке замученных');
+          }
+        } else {
+          setCommandError('Недостаточно прав или неверные параметры');
+        }
+        break;
+
+      case '/roll':
+        const target = args.length > 0 ? args.join(' ') : lastRollTarget;
+        if (target) {
+          setLastRollTarget(target);
+          const rollValue = Math.floor(Math.random() * 100) + 1;
+          
+          const now = new Date();
+          const hours = now.getHours().toString().padStart(2, '0');
+          const minutes = now.getMinutes().toString().padStart(2, '0');
+          const seconds = now.getSeconds().toString().padStart(2, '0');
+          const timestamp = `${hours}.${minutes}.${seconds}`;
+
+          try {
+            const avatar = useCustomAvatar ? customAvatar : selectedAvatar;
+            await chatApi.sendMessage({
+              roomId: currentRoom.id,
+              userId: currentAccount.id,
+              user: username,
+              avatar: avatar,
+              bgColor: selectedBgColor,
+              text: `${username} кинул кубик на тему "${target}" и выбил ${rollValue} из 100`,
+              timestamp,
+              isSystemMessage: true
+            });
+
+            await loadMessages(currentRoom.id);
+            setNewMessage('');
+          } catch (error) {
+            console.error('Failed to send roll message:', error);
+          }
+        } else {
+          setCommandError('Укажите тему для броска (например: /roll удача)');
+        }
+        break;
+
+      case '/clear':
+        if (canModerate) {
+          setMessages([]);
+          setNewMessage('');
+        } else {
+          setCommandError('Недостаточно прав для очистки чата');
+        }
+        break;
+
+      default:
+        setCommandError('Неизвестная команда');
+    }
+
+    if (commandError) {
+      setTimeout(() => setCommandError(''), 3000);
+    }
+  };
+
+  const handleKnock = (roomId: string) => {
+    const now = Date.now();
+    const lastKnock = knockCooldowns[roomId] || 0;
+    
+    if (now - lastKnock < 5000) {
       return;
     }
     
-    setKnockCooldowns({ ...knockCooldowns, [room.id]: now });
+    setKnockCooldowns(prev => ({
+      ...prev,
+      [roomId]: now
+    }));
     
-    const nowDate = new Date();
-    const hours = nowDate.getHours().toString().padStart(2, '0');
-    const minutes = nowDate.getMinutes().toString().padStart(2, '0');
-    const seconds = nowDate.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
+    alert('Стук отправлен владельцу комнаты');
+  };
+
+  const handleImageAttach = (imageUrl: string) => {
+    setAttachedImage(imageUrl);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData('text');
     
-    const knockMessage: Message = {
-      id: Date.now().toString(),
-      user: '',
-      avatar: '',
-      bgColor: '',
-      text: `• ${username} стучит.`,
-      timestamp,
-      isSystemMessage: true,
-    };
-    
-    if (currentRoom?.id === room.id) {
-      setMessages([knockMessage, ...messages]);
+    if (text.length > 10) {
+      e.preventDefault();
+      
+      const now = Date.now();
+      
+      if (now - lastPasteTime < 5000) {
+        return;
+      }
+      
+      setPastedText(text);
+      setPasteModalText(text);
+      setShowPasteModal(true);
+      setLastPasteTime(now);
+      setPasteBlockActive(true);
+      setPasteCountdown(5);
+      
+      const countdownInterval = setInterval(() => {
+        setPasteCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            setPasteBlockActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
   };
-  
-  const deleteMessage = (messageId: string) => {
-    setMessages(messages.filter(m => m.id !== messageId));
+
+  const handleConfirmPaste = () => {
+    setNewMessage(pasteModalText);
+    setShowPasteModal(false);
   };
-  
-  const kickParticipant = (participantUsername: string) => {
+
+  const handleSanction = (participant: RoomParticipant) => {
+    const userRole = getUserRole();
+    const isRoomOwner = currentRoom?.creatorId === currentAccount?.id;
+    
+    if (userRole === 'owner' || userRole === 'admin' || isRoomOwner) {
+      setSanctionTarget(participant);
+      setShowSanctionModal(true);
+    }
+  };
+
+  const handleBanUser = async (participant: RoomParticipant) => {
+    if (!currentRoom || !currentAccount) return;
+    
+    try {
+      await chatApi.banUser(
+        currentRoom.id,
+        participant.accountId || participant.username,
+        participant.username,
+        username
+      );
+      
+      await loadRooms();
+      await loadMessages(currentRoom.id);
+      
+      setShowSanctionModal(false);
+      setSanctionTarget(null);
+      setSanctionNotificationText(`${participant.username} был забанен`);
+      setShowSanctionNotification(true);
+      
+      setTimeout(() => {
+        setShowSanctionNotification(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to ban user:', error);
+      alert('Ошибка бана пользователя');
+    }
+  };
+
+  const handleMuteUser = async (participant: RoomParticipant) => {
+    if (!currentRoom || !currentAccount) return;
+    
+    try {
+      await chatApi.muteUser(
+        currentRoom.id,
+        participant.accountId || participant.username,
+        participant.username,
+        username
+      );
+      
+      await loadRooms();
+      await loadMessages(currentRoom.id);
+      
+      setShowSanctionModal(false);
+      setSanctionTarget(null);
+      setSanctionNotificationText(`${participant.username} был замучен`);
+      setShowSanctionNotification(true);
+      
+      setTimeout(() => {
+        setShowSanctionNotification(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to mute user:', error);
+      alert('Ошибка мута пользователя');
+    }
+  };
+
+  const handleUnbanUser = async (bannedUser: BannedUser) => {
     if (!currentRoom) return;
-    const updatedRoom = {
-      ...currentRoom,
-      participants: currentRoom.participants.filter(p => p.username !== participantUsername),
-      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
-    };
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    
+    try {
+      await chatApi.unbanUser(currentRoom.id, bannedUser.userId);
+      await loadRooms();
+      await loadMessages(currentRoom.id);
+    } catch (error) {
+      console.error('Failed to unban user:', error);
+      alert('Ошибка разбана пользователя');
+    }
   };
-  
-  const banParticipant = (participantUsername: string) => {
+
+  const handleUnmuteUser = async (mutedUser: MutedUser) => {
     if (!currentRoom) return;
-    const updatedRoom = {
-      ...currentRoom,
-      participants: currentRoom.participants.filter(p => p.username !== participantUsername),
-      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1),
-      bannedUsers: [...currentRoom.bannedUsers, participantUsername]
-    };
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    
+    try {
+      await chatApi.unmuteUser(currentRoom.id, mutedUser.userId);
+      await loadRooms();
+      await loadMessages(currentRoom.id);
+    } catch (error) {
+      console.error('Failed to unmute user:', error);
+      alert('Ошибка размута пользователя');
+    }
   };
-  
-  const expandRoom = () => {
+
+  const handleOpenModeration = async () => {
+    await loadComplaints();
+    setShowModerationPanel(true);
+  };
+
+  const handleComplaint = (room: Room) => {
+    setComplaintRoom(room);
+    setShowComplaintModal(true);
+  };
+
+  const handleSubmitComplaint = async (reason: string, description: string) => {
+    if (!complaintRoom || !currentAccount) return;
+    
+    try {
+      await chatApi.createComplaint({
+        roomId: complaintRoom.id,
+        roomName: complaintRoom.name,
+        reporterId: currentAccount.id,
+        reporterUsername: username,
+        reason,
+        description,
+        status: 'pending'
+      });
+      
+      setShowComplaintModal(false);
+      setComplaintRoom(null);
+      alert('Жалоба отправлена');
+    } catch (error) {
+      console.error('Failed to create complaint:', error);
+      alert('Ошибка отправки жалобы');
+    }
+  };
+
+  const handleUpdateRoom = async (roomId: string, updates: Partial<Room>) => {
+    try {
+      await chatApi.updateRoom({
+        id: roomId,
+        ...updates
+      });
+      
+      await loadRooms();
+      
+      if (currentRoom && currentRoom.id === roomId) {
+        const roomsData = await chatApi.getRooms();
+        const updatedRoom = roomsData.rooms?.find((r: Room) => r.id === roomId);
+        if (updatedRoom) {
+          setCurrentRoom(updatedRoom);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update room:', error);
+      alert('Ошибка обновления комнаты');
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить эту комнату?')) {
+      return;
+    }
+    
+    try {
+      await chatApi.deleteRoom(roomId);
+      await loadRooms();
+      
+      if (currentRoom && currentRoom.id === roomId) {
+        setCurrentRoom(null);
+        setCurrentView('lobby');
+      }
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+      alert('Ошибка удаления комнаты');
+    }
+  };
+
+  const handleSaveRoomName = async () => {
     if (!currentRoom) return;
-    const updatedRoom = {
-      ...currentRoom,
-      maxParticipants: currentRoom.maxParticipants + 5
-    };
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
-  };
-  
-  const updateRoomName = () => {
-    if (!currentRoom || !tempRoomName.trim()) return;
-    const updatedRoom = {
-      ...currentRoom,
-      name: tempRoomName
-    };
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    
+    await handleUpdateRoom(currentRoom.id, { name: tempRoomName });
     setEditingRoomName(false);
   };
-  
-  const updateRoomDescription = () => {
+
+  const handleSaveRoomDescription = async () => {
     if (!currentRoom) return;
-    const updatedRoom = {
-      ...currentRoom,
-      description: tempRoomDescription || undefined
-    };
-    setCurrentRoom(updatedRoom);
-    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    
+    await handleUpdateRoom(currentRoom.id, { description: tempRoomDescription });
     setEditingRoomDescription(false);
   };
 
-  const handleTyping = () => {
-    setTypingUsers(prev => {
-      const existing = prev.find(tu => tu.username === username);
-      if (existing) {
-        return prev.map(tu => 
-          tu.username === username ? { ...tu, lastTyping: Date.now() } : tu
-        );
-      } else {
-        return [...prev, { username, lastTyping: Date.now() }];
-      }
-    });
-  };
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTypingUsers(prev => 
-        prev.filter(tu => Date.now() - tu.lastTyping < 3000)
-      );
-      
-      if (pasteCountdown > 0) {
-        setPasteCountdown(prev => prev - 1);
-      } else if (pasteBlockActive) {
-        setPasteBlockActive(false);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [pasteCountdown, pasteBlockActive]);
-  
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const text = e.clipboardData.getData('text/plain').trim();
-    if (text.length === 0) return;
-    
-    e.preventDefault();
-    setPastedText(text.slice(0, 500));
-    setPasteBlockActive(true);
-    setPasteCountdown(10);
-    setLastPasteTime(Date.now());
-  };
-  
-  const handleImageAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > 1200 || height > 1200) {
-          if (width > height) {
-            height = (height / width) * 1200;
-            width = 1200;
-          } else {
-            width = (width / height) * 1200;
-            height = 1200;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        canvas.toBlob((blob) => {
-          if (blob && blob.size <= 300000) {
-            const url = URL.createObjectURL(blob);
-            setAttachedImage(url);
-          } else {
-            alert('Изображение слишком большое (макс. 300KB)');
-          }
-        }, 'image/webp', 0.8);
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
-  
-  const processCommand = (input: string): boolean => {
-    if (!input.startsWith('/')) return false;
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    if (input.startsWith('/me ')) {
-      const text = input.substring(4).trim();
-      if (!text) return true;
-      
-      const meMessage: Message = {
-        id: Date.now().toString(),
-        user: '',
-        avatar: '',
-        bgColor: '',
-        text: `• ${username} ${text}.`,
-        timestamp,
-        isSystemMessage: true,
-      };
-      
-      const updatedMessages = [meMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
-      }
-      setMessages(updatedMessages);
-      return true;
-    }
-    
-    if (input === '/roll') {
-      if (!currentRoom) return true;
-      
-      const otherParticipants = currentRoom.participants.filter(p => p.username !== username);
-      
-      if (otherParticipants.length === 0) {
-        const lonelyMessage: Message = {
-          id: Date.now().toString(),
-          user: '',
-          avatar: '',
-          bgColor: '',
-          text: `• ${username} в комнате совсем один :с.`,
-          timestamp,
-          isSystemMessage: true,
-        };
-        
-        const updatedMessages = [lonelyMessage, ...messages];
-        if (updatedMessages.length > 30) {
-          updatedMessages.pop();
-        }
-        setMessages(updatedMessages);
-        return true;
-      }
-      
-      let availableTargets = otherParticipants.filter(p => p.username !== lastRollTarget);
-      if (availableTargets.length === 0) {
-        availableTargets = otherParticipants;
-      }
-      
-      const randomIndex = Math.floor(Math.random() * availableTargets.length);
-      const selectedUser = availableTargets[randomIndex].username;
-      setLastRollTarget(selectedUser);
-      
-      const rollMessage: Message = {
-        id: Date.now().toString(),
-        user: '',
-        avatar: '',
-        bgColor: '',
-        text: `• ${username} выбрал ${selectedUser}`,
-        timestamp,
-        isSystemMessage: true,
-      };
-      
-      const updatedMessages = [rollMessage, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
-      }
-      setMessages(updatedMessages);
-      return true;
-    }
-    
-    if (input.startsWith('/dm ')) {
-      const parts = input.substring(4).split(' ');
-      if (parts.length < 2) {
-        setCommandError('Неверный формат команды.');
-        setTimeout(() => setCommandError(''), 3000);
-        return true;
-      }
-      
-      const targetUsername = parts[0];
-      const dmText = parts.slice(1).join(' ').trim();
-      
-      if (!dmText) {
-        setCommandError('Неверный формат команды.');
-        setTimeout(() => setCommandError(''), 3000);
-        return true;
-      }
-      
-      const targetUser = currentRoom?.participants.find(
-        p => p.username.toLowerCase() === targetUsername.toLowerCase()
-      );
-      
-      if (!targetUser) {
-        setCommandError('Пользователь недоступен.');
-        setTimeout(() => setCommandError(''), 3000);
-        return true;
-      }
-      
-      setCommandError(`Личное сообщение отправлено ${targetUser.username}`);
-      setTimeout(() => setCommandError(''), 3000);
-      return true;
-    }
-    
-    setCommandError('Неизвестная команда.');
-    setTimeout(() => setCommandError(''), 3000);
-    return true;
-  };
-  
-  const sendMessage = () => {
-    if (pasteBlockActive && pasteCountdown > 0) return;
-    if (!newMessage.trim() && !pastedText && !attachedImage) return;
-    
-    if (currentRoom) {
-      const isMuted = currentRoom.mutedUsers.some(mu => mu.username === username);
-      if (isMuted) {
-        setCommandError('Вы замучены и не можете отправлять сообщения.');
-        setTimeout(() => setCommandError(''), 3000);
-        return;
-      }
-    }
-    
-    if (newMessage.startsWith('/')) {
-      const isCommand = processCommand(newMessage);
-      if (isCommand) {
-        setNewMessage('');
-        return;
-      }
-    }
-    
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    const timestamp = `${hours}.${minutes}.${seconds}`;
-    
-    let messageText = newMessage.slice(0, 150);
-    
-    if (pastedText) {
-      const truncatedPaste = pastedText.slice(0, 500);
-      if (truncatedPaste.length <= 150) {
-        messageText = `копипаста ${truncatedPaste}`;
-      } else {
-        messageText = newMessage || 'копипаста';
-      }
-    }
-    
-    const message: Message = {
-      id: Date.now().toString(),
-      user: username,
-      avatar: selectedAvatar,
-      bgColor: selectedBgColor,
-      text: messageText,
-      timestamp,
-      isReply: !!replyingTo,
-      replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
-      imageUrl: attachedImage || undefined,
-    };
-    
-    const updatedMessages = [message, ...messages];
-    if (updatedMessages.length > 30) {
-      updatedMessages.pop();
-    }
-    setMessages(updatedMessages);
-    setNewMessage('');
-    setReplyingTo(null);
-    setTypingUsers(prev => prev.filter(tu => tu.username !== username));
-    
-    if (pastedText) {
-      setPasteBlockActive(true);
-      setPasteCountdown(10);
-    }
-    setPastedText('');
-    setAttachedImage(null);
-    
-    resetInactivityTimer();
-  };
-
-  const handleLogin = () => {
-    if (username.trim()) {
-      const finalAvatar = useCustomAvatar && customAvatar ? customAvatar : (selectedAvatar || STANDARD_AVATARS[0]);
-      const finalBgColor = selectedBgColor || BACKGROUND_COLORS[0].value;
-      setSelectedAvatar(finalAvatar);
-      setSelectedBgColor(finalBgColor);
-      setCurrentView('lobby');
-      
-      localStorage.setItem('userSession', JSON.stringify({
-        username,
-        avatar: finalAvatar,
-        bgColor: finalBgColor,
-        isAuthenticated: false
-      }));
-    }
-  };
-  
-  const handleAuth = () => {
-    const account = accounts.find(acc => acc.id === authId && acc.password === authPassword);
-    if (account) {
-      setCurrentAccount(account);
-      setIsAuthenticated(true);
-      setUsername(account.username);
-      setSelectedAvatar(account.avatar);
-      setSelectedBgColor(account.bgColor);
-      if (account.role === 'admin' || account.role === 'moderator' || account.role === 'owner') {
-        setIsAdmin(true);
-      }
-      setCurrentView('lobby');
-      setShowAuthModal(false);
-      setAuthId('');
-      setAuthPassword('');
-      
-      localStorage.setItem('userSession', JSON.stringify({
-        username: account.username,
-        avatar: account.avatar,
-        bgColor: account.bgColor,
-        isAuthenticated: true,
-        accountId: account.id,
-        accountRole: account.role
-      }));
-    }
-  };
-  
-  const handleCreateAccount = () => {
-    if (newAccountUsername.trim() && newAccountPassword.trim()) {
-      const newId = `USR${(accounts.length + 1).toString().padStart(3, '0')}`;
-      const newAccount: Account = {
-        id: newId,
-        password: newAccountPassword,
-        username: newAccountUsername,
-        role: newAccountRole,
-        avatar: STANDARD_AVATARS[Math.floor(Math.random() * STANDARD_AVATARS.length)],
-        bgColor: BACKGROUND_COLORS[Math.floor(Math.random() * BACKGROUND_COLORS.length)].value
-      };
-      setAccounts([...accounts, newAccount]);
-      setNewAccountUsername('');
-      setNewAccountPassword('');
-      setNewAccountRole('user');
-      setShowCreateAccountModal(false);
-      
-      const accountInfo = `🎉 АККАУНТ СОЗДАН!\n\n📋 ID: ${newId}\n🔑 Пароль: ${newAccountPassword}\n👤 Роль: ${newAccountRole === 'admin' ? '👑 Админ' : newAccountRole === 'moderator' ? '⚔️ Модератор' : '👤 Юзер'}\n\n⚠️ Сохраните эти данные!`;
-      alert(accountInfo);
-    }
-  };
-  
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentAccount(null);
-    setIsAdmin(false);
-    setCurrentView('login');
-    localStorage.removeItem('userSession');
-  };
-
-  useEffect(() => {
-    const savedSession = localStorage.getItem('userSession');
-    if (savedSession) {
-      try {
-        const session = JSON.parse(savedSession);
-        setUsername(session.username);
-        setSelectedAvatar(session.avatar);
-        setSelectedBgColor(session.bgColor);
-        setCurrentView('lobby');
-        
-        if (session.isAuthenticated && session.accountId) {
-          const account = accounts.find(acc => acc.id === session.accountId);
-          if (account) {
-            setCurrentAccount(account);
-            setIsAuthenticated(true);
-            if (account.role === 'admin' || account.role === 'moderator' || account.role === 'owner') {
-              setIsAdmin(true);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to restore session:', error);
-        localStorage.removeItem('userSession');
-      }
-    }
-  }, [accounts]);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setCustomAvatar(event.target?.result as string);
-        setUseCustomAvatar(true);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setComplaints((prevComplaints) =>
-        prevComplaints.filter((complaint) => {
-          const age = now - complaint.timestamp;
-          const maxAge = complaint.status === 'accepted' ? 3 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-          return age < maxAge;
-        })
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-black text-foreground p-4 font-['Press_Start_2P']">
-      {currentView === 'login' ? (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+      {currentView === 'login' && (
         <LoginView
           username={username}
           setUsername={setUsername}
           selectedAvatar={selectedAvatar}
           setSelectedAvatar={setSelectedAvatar}
           customAvatar={customAvatar}
+          setCustomAvatar={setCustomAvatar}
           selectedBgColor={selectedBgColor}
           setSelectedBgColor={setSelectedBgColor}
           useCustomAvatar={useCustomAvatar}
           setUseCustomAvatar={setUseCustomAvatar}
-          handleFileUpload={handleFileUpload}
           handleLogin={handleLogin}
-          setShowAuthModal={setShowAuthModal}
-        />
-      ) : currentView === 'lobby' ? (
-        <LobbyView
-          username={username}
-          selectedAvatar={selectedAvatar}
-          selectedBgColor={selectedBgColor}
           isAuthenticated={isAuthenticated}
           currentAccount={currentAccount}
-          isAdmin={isAdmin}
-          rooms={rooms}
-          accounts={accounts}
-          setShowCreateAccountModal={setShowCreateAccountModal}
-          handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
-          setShowCreateRoom={setShowCreateRoom}
-          joinRoom={joinRoom}
-          deleteRoom={deleteRoom}
-          knockOnRoom={knockOnRoom}
-          onComplainRoom={(room) => {
-            setComplaintRoom(room);
-            setShowComplaintModal(true);
-          }}
-          onShowModerationPanel={() => setShowModerationPanel(true)}
-          onShowAdminPanel={() => setShowAdminPanel(true)}
+          onAuthClick={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
         />
-      ) : currentView === 'room' && currentRoom ? (
-        <RoomView
-          currentRoom={currentRoom}
+      )}
+
+      {currentView === 'lobby' && (
+        <LobbyView
           username={username}
-          selectedAvatar={selectedAvatar}
-          isAdmin={isAdmin}
+          rooms={rooms}
+          onJoinRoom={handleJoinRoom}
+          onCreateRoom={() => setShowCreateRoom(true)}
+          onKnock={handleKnock}
+          knockCooldowns={knockCooldowns}
+          onBack={() => setCurrentView('login')}
+          isAuthenticated={isAuthenticated}
+          currentAccount={currentAccount}
+          onAuthClick={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
+          onOpenModeration={handleOpenModeration}
+          onOpenAdmin={() => setShowAdminPanel(true)}
+          onComplaint={handleComplaint}
+          canAccessRoom={canAccessRoom}
+        />
+      )}
+
+      {currentView === 'room' && currentRoom && (
+        <RoomView
+          room={currentRoom}
           messages={messages}
           newMessage={newMessage}
           setNewMessage={setNewMessage}
+          onSendMessage={handleSendMessage}
+          onLeaveRoom={handleLeaveRoom}
+          username={username}
+          selectedBgColor={selectedBgColor}
           replyingTo={replyingTo}
           setReplyingTo={setReplyingTo}
+          onPaste={handlePaste}
+          pasteBlockActive={pasteBlockActive}
+          pasteCountdown={pasteCountdown}
+          attachedImage={attachedImage}
+          onImageAttach={handleImageAttach}
+          onImageRemove={() => setAttachedImage(null)}
+          commandError={commandError}
+          onSanction={handleSanction}
+          currentAccount={currentAccount}
+          showInactivityWarning={showInactivityWarning}
+          onStayActive={handleStayActive}
+          typingUsers={typingUsers}
           editingRoomName={editingRoomName}
           setEditingRoomName={setEditingRoomName}
           tempRoomName={tempRoomName}
           setTempRoomName={setTempRoomName}
+          onSaveRoomName={handleSaveRoomName}
           editingRoomDescription={editingRoomDescription}
           setEditingRoomDescription={setEditingRoomDescription}
           tempRoomDescription={tempRoomDescription}
           setTempRoomDescription={setTempRoomDescription}
-          leaveRoom={leaveRoom}
-          deleteRoom={deleteRoom}
-          sendMessage={sendMessage}
-          deleteMessage={deleteMessage}
-          kickParticipant={kickParticipant}
-          banParticipant={banParticipant}
-          expandRoom={expandRoom}
-          updateRoomName={updateRoomName}
-          updateRoomDescription={updateRoomDescription}
-          onActivity={resetInactivityTimer}
-          typingUsers={typingUsers}
-          onTyping={handleTyping}
-          onPaste={handlePaste}
-          onImageAttach={handleImageAttach}
-          pasteBlockActive={pasteBlockActive}
-          pasteCountdown={pasteCountdown}
-          attachedImage={attachedImage}
-          onRemoveImage={() => setAttachedImage(null)}
-          pastedText={pastedText}
-          onShowPasteModal={(text) => {
-            setPasteModalText(text);
-            setShowPasteModal(true);
-          }}
-          commandError={commandError}
-          onUserClick={(targetUsername) => {
-            setNewMessage(`/dm ${targetUsername} `);
-          }}
-          currentUserRole={getUserRole()}
-          onManageUser={(participant) => {
-            setSanctionTarget(participant);
-            setShowSanctionModal(true);
-          }}
-          isMuted={currentRoom?.mutedUsers.some(mu => mu.username === username)}
+          onSaveRoomDescription={handleSaveRoomDescription}
+          onUnbanUser={handleUnbanUser}
+          onUnmuteUser={handleUnmuteUser}
         />
-      ) : null}
+      )}
 
       <Modals
         showAuthModal={showAuthModal}
@@ -1395,132 +1034,144 @@ const Index = () => {
         authPassword={authPassword}
         setAuthPassword={setAuthPassword}
         handleAuth={handleAuth}
-        showCreateAccountModal={showCreateAccountModal}
-        setShowCreateAccountModal={setShowCreateAccountModal}
-        newAccountUsername={newAccountUsername}
-        setNewAccountUsername={setNewAccountUsername}
-        newAccountPassword={newAccountPassword}
-        setNewAccountPassword={setNewAccountPassword}
-        newAccountRole={newAccountRole}
-        setNewAccountRole={setNewAccountRole}
-        handleCreateAccount={handleCreateAccount}
         showPasswordPrompt={showPasswordPrompt}
         setShowPasswordPrompt={setShowPasswordPrompt}
         passwordInput={passwordInput}
         setPasswordInput={setPasswordInput}
         handlePasswordSubmit={handlePasswordSubmit}
-      />
-      
-      <CreateRoomModal
-        show={showCreateRoom}
-        onClose={() => setShowCreateRoom(false)}
-        onCreate={handleCreateRoom}
-      />
-      
-      <SanctionModal
-        isOpen={showSanctionModal}
-        onClose={() => {
-          setShowSanctionModal(false);
-          setSanctionTarget(null);
-        }}
-        target={sanctionTarget}
-        currentUsername={username}
-        currentRole={getUserRole()}
-        isHost={currentRoom?.hostUsername === username || currentRoom?.creatorUsername === username}
-        onKick={handleKick}
-        onMute={handleMute}
-        onBan={handleBan}
-        onTransferHost={handleTransferHost}
-      />
-      
-      <ModerationPanel
-        isOpen={showModerationPanel}
-        onClose={() => setShowModerationPanel(false)}
-        currentUserRole={getUserRole()}
-        rooms={rooms}
-        complaints={complaints}
-        onUnban={handleUnban}
-        onUnmute={handleUnmute}
-        onUpdateComplaintStatus={handleUpdateComplaintStatus}
+        showPasteModal={showPasteModal}
+        setShowPasteModal={setShowPasteModal}
+        pasteModalText={pasteModalText}
+        setPasteModalText={setPasteModalText}
+        handleConfirmPaste={handleConfirmPaste}
+        showKickNotification={showKickNotification}
+        showSanctionNotification={showSanctionNotification}
+        sanctionNotificationText={sanctionNotificationText}
       />
 
-      <AdminPanel
-        isOpen={showAdminPanel}
-        onClose={() => setShowAdminPanel(false)}
-        currentUserRole={getUserRole()}
-        rooms={rooms}
-        onDeleteRoom={deleteRoom}
-        onUpdateRoom={handleUpdateRoom}
-      />
-
-      <ComplaintModal
-        isOpen={showComplaintModal}
-        onClose={() => {
-          setShowComplaintModal(false);
-          setComplaintRoom(null);
-        }}
-        roomName={complaintRoom?.name || ''}
-        onSubmit={handleCreateComplaint}
-      />
-
-      {showSanctionNotification && (
-        <div className="fixed top-4 right-4 bg-red-600 border-2 border-foreground p-4 max-w-md z-50">
-          <p className="text-white text-sm">{sanctionNotificationText}</p>
-        </div>
+      {showCreateRoom && (
+        <CreateRoomModal
+          newRoomName={newRoomName}
+          setNewRoomName={setNewRoomName}
+          newRoomDescription={newRoomDescription}
+          setNewRoomDescription={setNewRoomDescription}
+          newRoomTheme={newRoomTheme}
+          setNewRoomTheme={setNewRoomTheme}
+          newRoomBadge={newRoomBadge}
+          setNewRoomBadge={setNewRoomBadge}
+          newRoomPassword={newRoomPassword}
+          setNewRoomPassword={setNewRoomPassword}
+          newRoomMaxParticipants={newRoomMaxParticipants}
+          setNewRoomMaxParticipants={setNewRoomMaxParticipants}
+          newRoomIsAdult={newRoomIsAdult}
+          setNewRoomIsAdult={setNewRoomIsAdult}
+          newRoomIsLocked={newRoomIsLocked}
+          setNewRoomIsLocked={setNewRoomIsLocked}
+          newRoomIsPrivate={newRoomIsPrivate}
+          setNewRoomIsPrivate={setNewRoomIsPrivate}
+          onClose={() => setShowCreateRoom(false)}
+          onCreate={handleCreateRoom}
+        />
       )}
-      
-      {showInactivityWarning && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border-4 border-foreground p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl mb-4 text-center">Вы ещё тут?</h2>
-            <div className="flex justify-center">
-              <Button
-                onClick={handleStayActive}
-                className="border-2 border-foreground bg-primary hover:bg-primary/80"
+
+      {showSanctionModal && sanctionTarget && (
+        <SanctionModal
+          target={sanctionTarget}
+          onClose={() => {
+            setShowSanctionModal(false);
+            setSanctionTarget(null);
+          }}
+          onBan={handleBanUser}
+          onMute={handleMuteUser}
+        />
+      )}
+
+      {showModerationPanel && (
+        <ModerationPanel
+          complaints={complaints}
+          onClose={() => setShowModerationPanel(false)}
+          onUpdateComplaint={async (id, status) => {
+            try {
+              await chatApi.updateComplaint(id, status);
+              await loadComplaints();
+            } catch (error) {
+              console.error('Failed to update complaint:', error);
+            }
+          }}
+        />
+      )}
+
+      {showAdminPanel && (
+        <AdminPanel
+          rooms={rooms}
+          accounts={accounts}
+          onClose={() => setShowAdminPanel(false)}
+          onDeleteRoom={handleDeleteRoom}
+          onCreateAccount={() => setShowCreateAccountModal(true)}
+        />
+      )}
+
+      {showCreateAccountModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Создать аккаунт</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Имя пользователя"
+                value={newAccountUsername}
+                onChange={(e) => setNewAccountUsername(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+              <input
+                type="password"
+                placeholder="Пароль"
+                value={newAccountPassword}
+                onChange={(e) => setNewAccountPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+              <select
+                value={newAccountRole}
+                onChange={(e) => setNewAccountRole(e.target.value as UserRole)}
+                className="w-full px-4 py-2 border rounded-lg"
               >
-                Да
-              </Button>
+                <option value="user">Пользователь</option>
+                <option value="admin">Администратор</option>
+                <option value="owner">Владелец</option>
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreateAccount}
+                  className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
+                  Создать
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCreateAccountModal(false);
+                    setNewAccountUsername('');
+                    setNewAccountPassword('');
+                    setNewAccountRole('user');
+                  }}
+                  className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-      
-      {showKickNotification && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border-4 border-foreground p-6 max-w-md w-full mx-4">
-            <h2 className="text-lg mb-4 text-center">Вас выгнала система за неактивность.</h2>
-            <div className="flex justify-center">
-              <Button
-                onClick={() => setShowKickNotification(false)}
-                className="border-2 border-foreground bg-primary hover:bg-primary/80"
-              >
-                Ок
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {showPasteModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-card border-4 border-foreground p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
-            <h2 className="text-xl mb-4">Копипаста</h2>
-            <div className="p-4 border-2 border-foreground bg-background mb-4 whitespace-pre-wrap break-words">
-              {pasteModalText}
-            </div>
-            {pasteModalText.length >= 500 && (
-              <p className="text-xs text-muted-foreground mb-4">(обрезано до 500 символов)</p>
-            )}
-            <div className="flex justify-center">
-              <Button
-                onClick={() => setShowPasteModal(false)}
-                className="border-2 border-foreground bg-primary hover:bg-primary/80"
-              >
-                Прочитано
-              </Button>
-            </div>
-          </div>
-        </div>
+
+      {showComplaintModal && complaintRoom && (
+        <ComplaintModal
+          room={complaintRoom}
+          onClose={() => {
+            setShowComplaintModal(false);
+            setComplaintRoom(null);
+          }}
+          onSubmit={handleSubmitComplaint}
+        />
       )}
     </div>
   );
