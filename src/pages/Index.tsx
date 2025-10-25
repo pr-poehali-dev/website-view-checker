@@ -97,6 +97,8 @@ const Index = () => {
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteModalText, setPasteModalText] = useState('');
+  const [lastRollTarget, setLastRollTarget] = useState<string>('');
+  const [commandError, setCommandError] = useState<string>('');
 
   const startInactivityTimer = () => {
     setHasBeenWarned(false);
@@ -569,9 +571,136 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
   
+  const processCommand = (input: string): boolean => {
+    if (!input.startsWith('/')) return false;
+    
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
+    if (input.startsWith('/me ')) {
+      const text = input.substring(4).trim();
+      if (!text) return true;
+      
+      const meMessage: Message = {
+        id: Date.now().toString(),
+        user: '',
+        avatar: '',
+        bgColor: '',
+        text: `• ${username} ${text}.`,
+        timestamp,
+        isSystemMessage: true,
+      };
+      
+      const updatedMessages = [meMessage, ...messages];
+      if (updatedMessages.length > 30) {
+        updatedMessages.pop();
+      }
+      setMessages(updatedMessages);
+      return true;
+    }
+    
+    if (input === '/roll') {
+      if (!currentRoom) return true;
+      
+      const otherParticipants = currentRoom.participants.filter(p => p.username !== username);
+      
+      if (otherParticipants.length === 0) {
+        const lonelyMessage: Message = {
+          id: Date.now().toString(),
+          user: '',
+          avatar: '',
+          bgColor: '',
+          text: `• ${username} в комнате совсем один :с.`,
+          timestamp,
+          isSystemMessage: true,
+        };
+        
+        const updatedMessages = [lonelyMessage, ...messages];
+        if (updatedMessages.length > 30) {
+          updatedMessages.pop();
+        }
+        setMessages(updatedMessages);
+        return true;
+      }
+      
+      let availableTargets = otherParticipants.filter(p => p.username !== lastRollTarget);
+      if (availableTargets.length === 0) {
+        availableTargets = otherParticipants;
+      }
+      
+      const randomIndex = Math.floor(Math.random() * availableTargets.length);
+      const selectedUser = availableTargets[randomIndex].username;
+      setLastRollTarget(selectedUser);
+      
+      const rollMessage: Message = {
+        id: Date.now().toString(),
+        user: '',
+        avatar: '',
+        bgColor: '',
+        text: `• ${username} выбрал ${selectedUser}`,
+        timestamp,
+        isSystemMessage: true,
+      };
+      
+      const updatedMessages = [rollMessage, ...messages];
+      if (updatedMessages.length > 30) {
+        updatedMessages.pop();
+      }
+      setMessages(updatedMessages);
+      return true;
+    }
+    
+    if (input.startsWith('/dm ')) {
+      const parts = input.substring(4).split(' ');
+      if (parts.length < 2) {
+        setCommandError('Неверный формат команды.');
+        setTimeout(() => setCommandError(''), 3000);
+        return true;
+      }
+      
+      const targetUsername = parts[0];
+      const dmText = parts.slice(1).join(' ').trim();
+      
+      if (!dmText) {
+        setCommandError('Неверный формат команды.');
+        setTimeout(() => setCommandError(''), 3000);
+        return true;
+      }
+      
+      const targetUser = currentRoom?.participants.find(
+        p => p.username.toLowerCase() === targetUsername.toLowerCase()
+      );
+      
+      if (!targetUser) {
+        setCommandError('Пользователь недоступен.');
+        setTimeout(() => setCommandError(''), 3000);
+        return true;
+      }
+      
+      setCommandError(`Личное сообщение отправлено ${targetUser.username}`);
+      setTimeout(() => setCommandError(''), 3000);
+      return true;
+    }
+    
+    setCommandError('Неизвестная команда.');
+    setTimeout(() => setCommandError(''), 3000);
+    return true;
+  };
+  
   const sendMessage = () => {
     if (pasteBlockActive && pasteCountdown > 0) return;
     if (!newMessage.trim() && !pastedText && !attachedImage) return;
+    
+    if (newMessage.startsWith('/')) {
+      const isCommand = processCommand(newMessage);
+      if (isCommand) {
+        setNewMessage('');
+        return;
+      }
+    }
     
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
@@ -810,6 +939,10 @@ const Index = () => {
           onShowPasteModal={(text) => {
             setPasteModalText(text);
             setShowPasteModal(true);
+          }}
+          commandError={commandError}
+          onUserClick={(targetUsername) => {
+            setNewMessage(`/dm ${targetUsername} `);
           }}
         />
       ) : null}

@@ -43,6 +43,8 @@ type RoomViewProps = {
   onRemoveImage: () => void;
   pastedText: string;
   onShowPasteModal: (text: string) => void;
+  commandError: string;
+  onUserClick: (username: string) => void;
 };
 
 export const RoomView = ({
@@ -83,11 +85,14 @@ export const RoomView = ({
   onRemoveImage,
   pastedText,
   onShowPasteModal,
+  commandError,
+  onUserClick,
 }: RoomViewProps) => {
   const isHost = currentRoom.creatorUsername === username;
   const [expandedImages, setExpandedImages] = useState<Set<string>>(new Set());
   const [showMessageActions, setShowMessageActions] = useState<string | null>(null);
   const [hiddenMessages, setHiddenMessages] = useState<Set<string>>(new Set());
+  const [showUserProfile, setShowUserProfile] = useState<string | null>(null);
   
   const handleActivity = () => {
     if (onActivity) {
@@ -264,31 +269,55 @@ export const RoomView = ({
                 key={msg.id} 
                 className={`flex gap-3 group items-start ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
               >
-                <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <div className="w-12 h-12 border-2 border-foreground relative">
+                <div className="flex flex-col items-center gap-1 flex-shrink-0 relative">
+                  <div 
+                    className="w-12 h-12 border-2 border-foreground relative cursor-pointer"
+                    onClick={() => setShowUserProfile(showUserProfile === msg.user ? null : msg.user)}
+                  >
                     <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
                   </div>
                   <span className="text-xs">{msg.user}</span>
-                  {isHost && msg.user !== username && (
-                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100">
+                  
+                  {showUserProfile === msg.user && msg.user !== username && (
+                    <div className="absolute top-14 left-0 bg-card border-2 border-foreground p-3 z-20 min-w-[150px]">
+                      <p className="text-xs mb-2 font-bold">{msg.user}</p>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => kickParticipant(msg.user)}
-                        className="text-xs border-2 border-foreground bg-orange-900"
-                        title="Кикнуть"
+                        onClick={() => {
+                          onUserClick(msg.user);
+                          setShowUserProfile(null);
+                        }}
+                        className="text-xs border-2 border-foreground w-full mb-1"
                       >
-                        <Icon name="UserX" size={12} />
+                        Личное сообщение
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => banParticipant(msg.user)}
-                        className="text-xs border-2 border-foreground bg-red-900"
-                        title="Забанить"
-                      >
-                        <Icon name="Ban" size={12} />
-                      </Button>
+                      {isHost && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              kickParticipant(msg.user);
+                              setShowUserProfile(null);
+                            }}
+                            className="text-xs border-2 border-foreground bg-orange-900 w-full mb-1"
+                          >
+                            Кикнуть
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              banParticipant(msg.user);
+                              setShowUserProfile(null);
+                            }}
+                            className="text-xs border-2 border-foreground bg-red-900 w-full"
+                          >
+                            Забанить
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -527,6 +556,11 @@ export const RoomView = ({
                   <span className="ml-2 text-yellow-500">Ожидание {pasteCountdown}с</span>
                 )}
               </div>
+              {commandError && (
+                <div className="text-xs text-center p-2 border-2 border-foreground bg-card">
+                  {commandError}
+                </div>
+              )}
             </div>
           </div>
         </div>
