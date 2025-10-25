@@ -35,6 +35,14 @@ type RoomViewProps = {
   onActivity?: () => void;
   typingUsers: TypingUser[];
   onTyping: () => void;
+  onPaste: (e: React.ClipboardEvent) => void;
+  onImageAttach: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  pasteBlockActive: boolean;
+  pasteCountdown: number;
+  attachedImage: string | null;
+  onRemoveImage: () => void;
+  pastedText: string;
+  onShowPasteModal: (text: string) => void;
 };
 
 export const RoomView = ({
@@ -67,6 +75,14 @@ export const RoomView = ({
   onActivity,
   typingUsers,
   onTyping,
+  onPaste,
+  onImageAttach,
+  pasteBlockActive,
+  pasteCountdown,
+  attachedImage,
+  onRemoveImage,
+  pastedText,
+  onShowPasteModal,
 }: RoomViewProps) => {
   const isHost = currentRoom.creatorUsername === username;
   const [expandedImages, setExpandedImages] = useState<Set<string>>(new Set());
@@ -319,7 +335,22 @@ export const RoomView = ({
                       </div>
                     )}
                     
-                    <div className="break-words">{msg.text}</div>
+                    <div className="break-words">
+                      {msg.text}
+                      {msg.text.includes('копипаста') && !msg.text.startsWith('копипаста ') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onShowPasteModal(msg.text);
+                          }}
+                          className="ml-2 text-xs border-2 border-foreground"
+                        >
+                          копипаста
+                        </Button>
+                      )}
+                    </div>
                     
                     <div 
                       className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-left' : 'text-right'}`}
@@ -421,10 +452,48 @@ export const RoomView = ({
               </div>
             )}
             <div className="space-y-1">
+              {attachedImage && (
+                <div className="flex items-center gap-2 p-2 border-2 border-foreground bg-card">
+                  <Icon name="Image" size={14} />
+                  <span className="text-xs flex-1">Изображение прикреплено</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={onRemoveImage}
+                  >
+                    <Icon name="X" size={14} />
+                  </Button>
+                </div>
+              )}
+              {pastedText && (
+                <div className="flex items-center gap-2 p-2 border-2 border-foreground bg-card">
+                  <Icon name="FileText" size={14} />
+                  <span className="text-xs flex-1">Копипаста ({pastedText.length} симв.)</span>
+                </div>
+              )}
               <div className="flex gap-2 items-center">
                 <div className="w-12 h-12 border-2 border-foreground flex-shrink-0">
                   <img src={selectedAvatar} alt="you" className="w-full h-full object-cover" />
                 </div>
+                <input
+                  type="file"
+                  ref={(el) => { if (el) el.onclick = () => { el.value = ''; }; }}
+                  accept="image/*"
+                  onChange={onImageAttach}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-2 border-foreground"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                  >
+                    <Icon name="Paperclip" size={16} />
+                  </Button>
+                </label>
                 <Input
                   value={newMessage}
                   onChange={(e) => {
@@ -433,6 +502,7 @@ export const RoomView = ({
                       onTyping();
                     }
                   }}
+                  onPaste={onPaste}
                   placeholder=""
                   className="border-2 border-foreground text-sm flex-1"
                   maxLength={150}
@@ -442,12 +512,20 @@ export const RoomView = ({
                   onClick={sendMessage}
                   className="border-2 border-foreground bg-primary hover:bg-primary/80"
                   size="sm"
+                  disabled={pasteBlockActive && pasteCountdown > 0}
                 >
-                  <Icon name="Hash" size={20} />
+                  {pasteBlockActive && pasteCountdown > 0 ? (
+                    <span>{pasteCountdown}</span>
+                  ) : (
+                    <Icon name="Hash" size={20} />
+                  )}
                 </Button>
               </div>
               <div className="text-xs text-muted-foreground text-right">
                 {newMessage.length}/150
+                {pasteBlockActive && pasteCountdown > 0 && (
+                  <span className="ml-2 text-yellow-500">Ожидание {pasteCountdown}с</span>
+                )}
               </div>
             </div>
           </div>

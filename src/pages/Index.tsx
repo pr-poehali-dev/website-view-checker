@@ -89,6 +89,14 @@ const Index = () => {
   const [showKickNotification, setShowKickNotification] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  
+  const [pasteBlockActive, setPasteBlockActive] = useState(false);
+  const [pasteCountdown, setPasteCountdown] = useState(0);
+  const [lastPasteTime, setLastPasteTime] = useState(0);
+  const [pastedText, setPastedText] = useState('');
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteModalText, setPasteModalText] = useState('');
 
   const startInactivityTimer = () => {
     setHasBeenWarned(false);
@@ -499,38 +507,118 @@ const Index = () => {
       setTypingUsers(prev => 
         prev.filter(tu => Date.now() - tu.lastTyping < 3000)
       );
+      
+      if (pasteCountdown > 0) {
+        setPasteCountdown(prev => prev - 1);
+      } else if (pasteBlockActive) {
+        setPasteBlockActive(false);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pasteCountdown, pasteBlockActive]);
+  
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData('text/plain').trim();
+    if (text.length === 0) return;
+    
+    e.preventDefault();
+    setPastedText(text.slice(0, 500));
+    setPasteBlockActive(true);
+    setPasteCountdown(10);
+    setLastPasteTime(Date.now());
+  };
+  
+  const handleImageAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > 1200 || height > 1200) {
+          if (width > height) {
+            height = (height / width) * 1200;
+            width = 1200;
+          } else {
+            width = (width / height) * 1200;
+            height = 1200;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          if (blob && blob.size <= 300000) {
+            const url = URL.createObjectURL(blob);
+            setAttachedImage(url);
+          } else {
+            alert('Изображение слишком большое (макс. 300KB)');
+          }
+        }, 'image/webp', 0.8);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
   
   const sendMessage = () => {
-    if (newMessage.trim()) {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const seconds = now.getSeconds().toString().padStart(2, '0');
-      const timestamp = `${hours}.${minutes}.${seconds}`;
-      
-      const message: Message = {
-        id: Date.now().toString(),
-        user: username,
-        avatar: selectedAvatar,
-        bgColor: selectedBgColor,
-        text: newMessage.slice(0, 150),
-        timestamp,
-        isReply: !!replyingTo,
-        replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
-      };
-      const updatedMessages = [message, ...messages];
-      if (updatedMessages.length > 30) {
-        updatedMessages.pop();
+    if (pasteBlockActive && pasteCountdown > 0) return;
+    if (!newMessage.trim() && !pastedText && !attachedImage) return;
+    
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
+    let messageText = newMessage.slice(0, 150);
+    
+    if (pastedText) {
+      const truncatedPaste = pastedText.slice(0, 500);
+      if (truncatedPaste.length <= 150) {
+        messageText = `копипаста ${truncatedPaste}`;
+      } else {
+        messageText = newMessage || 'копипаста';
       }
-      setMessages(updatedMessages);
-      setNewMessage('');
-      setReplyingTo(null);
-      setTypingUsers(prev => prev.filter(tu => tu.username !== username));
-      resetInactivityTimer();
     }
+    
+    const message: Message = {
+      id: Date.now().toString(),
+      user: username,
+      avatar: selectedAvatar,
+      bgColor: selectedBgColor,
+      text: messageText,
+      timestamp,
+      isReply: !!replyingTo,
+      replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
+      imageUrl: attachedImage || undefined,
+    };
+    
+    const updatedMessages = [message, ...messages];
+    if (updatedMessages.length > 30) {
+      updatedMessages.pop();
+    }
+    setMessages(updatedMessages);
+    setNewMessage('');
+    setReplyingTo(null);
+    setTypingUsers(prev => prev.filter(tu => tu.username !== username));
+    
+    if (pastedText) {
+      setPasteBlockActive(true);
+      setPasteCountdown(10);
+    }
+    setPastedText('');
+    setAttachedImage(null);
+    
+    resetInactivityTimer();
   };
 
   const handleLogin = () => {
@@ -712,6 +800,17 @@ const Index = () => {
           onActivity={resetInactivityTimer}
           typingUsers={typingUsers}
           onTyping={handleTyping}
+          onPaste={handlePaste}
+          onImageAttach={handleImageAttach}
+          pasteBlockActive={pasteBlockActive}
+          pasteCountdown={pasteCountdown}
+          attachedImage={attachedImage}
+          onRemoveImage={() => setAttachedImage(null)}
+          pastedText={pastedText}
+          onShowPasteModal={(text) => {
+            setPasteModalText(text);
+            setShowPasteModal(true);
+          }}
         />
       ) : null}
 
@@ -771,6 +870,28 @@ const Index = () => {
                 className="border-2 border-foreground bg-primary hover:bg-primary/80"
               >
                 Ок
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showPasteModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card border-4 border-foreground p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
+            <h2 className="text-xl mb-4">Копипаста</h2>
+            <div className="p-4 border-2 border-foreground bg-background mb-4 whitespace-pre-wrap break-words">
+              {pasteModalText}
+            </div>
+            {pasteModalText.length >= 500 && (
+              <p className="text-xs text-muted-foreground mb-4">(обрезано до 500 символов)</p>
+            )}
+            <div className="flex justify-center">
+              <Button
+                onClick={() => setShowPasteModal(false)}
+                className="border-2 border-foreground bg-primary hover:bg-primary/80"
+              >
+                Прочитано
               </Button>
             </div>
           </div>
