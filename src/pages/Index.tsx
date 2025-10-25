@@ -5,7 +5,10 @@ import { RoomView } from '@/components/chat/RoomView';
 import { Modals } from '@/components/chat/Modals';
 import { CreateRoomModal } from '@/components/chat/CreateRoomModal';
 import { SanctionModal } from '@/components/chat/SanctionModal';
-import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge, TypingUser, RoomParticipant } from '@/components/chat/types';
+import { ModerationPanel, type Complaint } from '@/components/chat/ModerationPanel';
+import { AdminPanel } from '@/components/chat/AdminPanel';
+import { ComplaintModal } from '@/components/chat/ComplaintModal';
+import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge, TypingUser, RoomParticipant, BannedUser, MutedUser } from '@/components/chat/types';
 import { STANDARD_AVATARS, BACKGROUND_COLORS } from '@/components/chat/types';
 
 const Index = () => {
@@ -105,6 +108,11 @@ const Index = () => {
   const [sanctionTarget, setSanctionTarget] = useState<RoomParticipant | null>(null);
   const [showSanctionNotification, setShowSanctionNotification] = useState(false);
   const [sanctionNotificationText, setSanctionNotificationText] = useState('');
+  const [showModerationPanel, setShowModerationPanel] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [complaintRoom, setComplaintRoom] = useState<Room | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
 
   const startInactivityTimer = () => {
     setHasBeenWarned(false);
@@ -634,6 +642,127 @@ const Index = () => {
     setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
   };
 
+  const handleUnban = (roomId: string, bannedUser: BannedUser) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+
+    const role = getUserRole();
+    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : 'модератор';
+
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `• ${roleLabel} ${username} разбанил ${bannedUser.username}.`,
+      timestamp,
+      isSystemMessage: true,
+    };
+
+    if (currentRoom?.id === roomId) {
+      const updatedMessages = [systemMessage, ...messages];
+      if (updatedMessages.length > 30) {
+        updatedMessages.pop();
+      }
+      setMessages(updatedMessages);
+    }
+
+    const updatedRoom = {
+      ...room,
+      bannedUsers: room.bannedUsers.filter(bu => bu.username !== bannedUser.username)
+    };
+
+    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
+    if (currentRoom?.id === roomId) {
+      setCurrentRoom(updatedRoom);
+    }
+  };
+
+  const handleUnmute = (roomId: string, mutedUser: MutedUser) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+
+    const role = getUserRole();
+    const roleLabel = role === 'owner' ? 'владелец' : role === 'admin' ? 'админ' : 'модератор';
+
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `• ${roleLabel} ${username} размутил ${mutedUser.username}.`,
+      timestamp,
+      isSystemMessage: true,
+    };
+
+    if (currentRoom?.id === roomId) {
+      const updatedMessages = [systemMessage, ...messages];
+      if (updatedMessages.length > 30) {
+        updatedMessages.pop();
+      }
+      setMessages(updatedMessages);
+    }
+
+    const updatedRoom = {
+      ...room,
+      mutedUsers: room.mutedUsers.filter(mu => mu.username !== mutedUser.username),
+      participants: room.participants.map(p =>
+        p.username === mutedUser.username ? { ...p, isMuted: false } : p
+      )
+    };
+
+    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
+    if (currentRoom?.id === roomId) {
+      setCurrentRoom(updatedRoom);
+    }
+  };
+
+  const handleUpdateRoom = (roomId: string, updates: Partial<Room>) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const updatedRoom = { ...room, ...updates };
+    setRooms(rooms.map(r => r.id === roomId ? updatedRoom : r));
+    
+    if (currentRoom?.id === roomId) {
+      setCurrentRoom(updatedRoom);
+    }
+  };
+
+  const handleCreateComplaint = (target: string, description: string, images: string[]) => {
+    if (!complaintRoom) return;
+
+    const newComplaint: Complaint = {
+      id: Date.now().toString(),
+      reporterUsername: username,
+      targetUsername: target,
+      description,
+      images,
+      timestamp: Date.now(),
+      status: 'accepted',
+      roomId: complaintRoom.id,
+    };
+
+    setComplaints([...complaints, newComplaint]);
+    setComplaintRoom(null);
+  };
+
+  const handleUpdateComplaintStatus = (complaintId: string, status: 'accepted' | 'in_review') => {
+    setComplaints(complaints.map(c => c.id === complaintId ? { ...c, status } : c));
+  };
+
   const deleteRoom = (roomId: string) => {
     const room = rooms.find(r => r.id === roomId);
     if (!room) return;
@@ -1147,6 +1276,21 @@ const Index = () => {
     }
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setComplaints((prevComplaints) =>
+        prevComplaints.filter((complaint) => {
+          const age = now - complaint.timestamp;
+          const maxAge = complaint.status === 'accepted' ? 3 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+          return age < maxAge;
+        })
+      );
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-foreground p-4 font-['Press_Start_2P']">
       {currentView === 'login' ? (
@@ -1181,6 +1325,12 @@ const Index = () => {
           joinRoom={joinRoom}
           deleteRoom={deleteRoom}
           knockOnRoom={knockOnRoom}
+          onComplainRoom={(room) => {
+            setComplaintRoom(room);
+            setShowComplaintModal(true);
+          }}
+          onShowModerationPanel={() => setShowModerationPanel(true)}
+          onShowAdminPanel={() => setShowAdminPanel(true)}
         />
       ) : currentView === 'room' && currentRoom ? (
         <RoomView
@@ -1283,6 +1433,36 @@ const Index = () => {
         onTransferHost={handleTransferHost}
       />
       
+      <ModerationPanel
+        isOpen={showModerationPanel}
+        onClose={() => setShowModerationPanel(false)}
+        currentUserRole={getUserRole()}
+        rooms={rooms}
+        complaints={complaints}
+        onUnban={handleUnban}
+        onUnmute={handleUnmute}
+        onUpdateComplaintStatus={handleUpdateComplaintStatus}
+      />
+
+      <AdminPanel
+        isOpen={showAdminPanel}
+        onClose={() => setShowAdminPanel(false)}
+        currentUserRole={getUserRole()}
+        rooms={rooms}
+        onDeleteRoom={deleteRoom}
+        onUpdateRoom={handleUpdateRoom}
+      />
+
+      <ComplaintModal
+        isOpen={showComplaintModal}
+        onClose={() => {
+          setShowComplaintModal(false);
+          setComplaintRoom(null);
+        }}
+        roomName={complaintRoom?.name || ''}
+        onSubmit={handleCreateComplaint}
+      />
+
       {showSanctionNotification && (
         <div className="fixed top-4 right-4 bg-red-600 border-2 border-foreground p-4 max-w-md z-50">
           <p className="text-white text-sm">{sanctionNotificationText}</p>

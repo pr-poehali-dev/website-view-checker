@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,6 +24,9 @@ type LobbyViewProps = {
   joinRoom: (room: Room) => void;
   deleteRoom: (id: string) => void;
   knockOnRoom: (room: Room) => void;
+  onComplainRoom: (room: Room) => void;
+  onShowModerationPanel: () => void;
+  onShowAdminPanel: () => void;
 };
 
 export const LobbyView = ({
@@ -41,7 +45,15 @@ export const LobbyView = ({
   joinRoom,
   deleteRoom,
   knockOnRoom,
+  onComplainRoom,
+  onShowModerationPanel,
+  onShowAdminPanel,
 }: LobbyViewProps) => {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  
+  const canModerate = currentAccount?.role === 'moderator' || currentAccount?.role === 'admin' || currentAccount?.role === 'owner';
+  const canAdmin = currentAccount?.role === 'admin' || currentAccount?.role === 'owner';
+  
   return (
     <div className="min-h-screen flex">
       <div className="w-64 border-r-4 border-foreground p-6 bg-black">
@@ -55,8 +67,55 @@ export const LobbyView = ({
           </div>
           
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-3 border-2 border-foreground">
-              <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
+            <div className="relative">
+              <div 
+                className="w-24 h-24 mx-auto mb-3 border-2 border-foreground cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+              >
+                <img src={selectedAvatar} alt="avatar" className="w-full h-full object-cover" />
+              </div>
+              
+              {showProfileMenu && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 border-2 border-foreground bg-black p-2 space-y-1 z-50">
+                  {canModerate && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border border-foreground text-xs"
+                      onClick={() => {
+                        onShowModerationPanel();
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      Панель модерации
+                    </Button>
+                  )}
+                  {canAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border border-foreground text-xs"
+                      onClick={() => {
+                        onShowAdminPanel();
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      Админ-панель
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full border border-foreground text-xs text-red-400"
+                    onClick={() => {
+                      handleLogout();
+                      setShowProfileMenu(false);
+                    }}
+                  >
+                    Выйти
+                  </Button>
+                </div>
+              )}
             </div>
             <div 
               className="text-xs font-bold p-2 border-2 border-foreground inline-block"
@@ -70,6 +129,7 @@ export const LobbyView = ({
                   ID: {currentAccount.id}
                 </div>
                 <div className="text-xs">
+                  {currentAccount.role === 'owner' && '🌟 ВЛАДЕЛЕЦ'}
                   {currentAccount.role === 'admin' && '👑 АДМИНИСТРАТОР'}
                   {currentAccount.role === 'moderator' && '⚔️ МОДЕРАТОР'}
                   {currentAccount.role === 'user' && '👤 АВТОРИЗОВАН'}
@@ -95,6 +155,7 @@ export const LobbyView = ({
                     {accounts.map((acc) => (
                       <div key={acc.id} className="text-xs p-2 border border-foreground bg-black">
                         <div className="flex items-center gap-2">
+                          {acc.role === 'owner' && '🌟'}
                           {acc.role === 'admin' && '👑'}
                           {acc.role === 'moderator' && '⚔️'}
                           {acc.role === 'user' && '👤'}
@@ -254,6 +315,8 @@ export const LobbyView = ({
                       <Button 
                         variant="outline"
                         className="border-2 border-foreground text-xs"
+                        onClick={() => onComplainRoom(room)}
+                        title="Пожаловаться"
                       >
                         <Icon name="Flag" size={16} />
                       </Button>
