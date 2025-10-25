@@ -1,6 +1,8 @@
 export type RoomTheme = 'general' | 'topic' | 'roleplay' | 'gaming' | 'cinema';
 export type RoomBadge = 'adult' | 'music' | 'video' | 'none';
-export type UserRole = 'guest' | 'user' | 'moderator' | 'admin';
+export type UserRole = 'guest' | 'user' | 'moderator' | 'admin' | 'owner';
+export type SanctionType = 'kick' | 'mute' | 'ban';
+export type SanctionMethod = 'username' | 'ip' | 'mac' | 'id';
 
 export type Account = {
   id: string;
@@ -14,6 +16,26 @@ export type Account = {
 export type RoomParticipant = {
   username: string;
   avatar: string;
+  role?: UserRole;
+  accountId?: string;
+  bgColor?: string;
+  isMuted?: boolean;
+};
+
+export type BannedUser = {
+  username?: string;
+  ip?: string;
+  mac?: string;
+  accountId?: string;
+  bannedBy: string;
+  reason?: string;
+  timestamp: number;
+};
+
+export type MutedUser = {
+  username: string;
+  mutedBy: string;
+  timestamp: number;
 };
 
 export type Room = {
@@ -25,10 +47,12 @@ export type Room = {
   password?: string;
   creatorId: string;
   creatorUsername: string;
+  hostUsername?: string;
   currentParticipants: number;
   maxParticipants: number;
   participants: RoomParticipant[];
-  bannedUsers: string[];
+  bannedUsers: BannedUser[];
+  mutedUsers: MutedUser[];
   is_adult: boolean;
   is_locked: boolean;
   is_private: boolean;

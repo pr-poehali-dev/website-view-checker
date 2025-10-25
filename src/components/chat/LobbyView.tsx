@@ -142,7 +142,7 @@ export const LobbyView = ({
               const isCreator = room.creatorUsername === username;
               const isPrivateAndNotParticipant = room.is_private && !isParticipant && !isAdmin;
               const canSeeFullInfo = isParticipant || isAdmin || isCreator || !room.is_private;
-              const isBanned = room.bannedUsers.includes(username);
+              const isBanned = room.bannedUsers.some(bu => bu.username?.toLowerCase() === username.toLowerCase());
               const isFull = room.currentParticipants >= room.maxParticipants;
               const canKnock = (room.is_locked || room.is_private) && !isParticipant && !isBanned;
               

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
-import type { Room, Message, TypingUser } from './types';
+import type { Room, Message, TypingUser, RoomParticipant, UserRole } from './types';
 
 type RoomViewProps = {
   currentRoom: Room;
@@ -45,6 +45,9 @@ type RoomViewProps = {
   onShowPasteModal: (text: string) => void;
   commandError: string;
   onUserClick: (username: string) => void;
+  currentUserRole: UserRole;
+  onManageUser: (participant: RoomParticipant) => void;
+  isMuted?: boolean;
 };
 
 export const RoomView = ({
@@ -87,8 +90,15 @@ export const RoomView = ({
   onShowPasteModal,
   commandError,
   onUserClick,
+  currentUserRole,
+  onManageUser,
+  isMuted,
 }: RoomViewProps) => {
-  const isHost = currentRoom.creatorUsername === username;
+  const isHost = currentRoom.hostUsername === username || currentRoom.creatorUsername === username;
+  const canEditBasicInfo = isHost || currentUserRole === 'moderator' || currentUserRole === 'admin' || currentUserRole === 'owner';
+  const canEditAllSettings = currentUserRole === 'admin' || currentUserRole === 'owner';
+  const canDeleteRoom = currentUserRole === 'admin' || currentUserRole === 'owner';
+  
   const [expandedImages, setExpandedImages] = useState<Set<string>>(new Set());
   const [showMessageActions, setShowMessageActions] = useState<string | null>(null);
   const [hiddenMessages, setHiddenMessages] = useState<Set<string>>(new Set());
@@ -122,14 +132,81 @@ export const RoomView = ({
             <h3 className="text-xs font-bold mb-2">УЧАСТНИКИ ({currentRoom.currentParticipants}):</h3>
             <ScrollArea className="max-h-96">
               <div className="space-y-2">
-                {currentRoom.participants.map((participant, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 border-2 border-foreground bg-card">
-                    <div className="w-8 h-8 border border-foreground">
-                      <img src={participant.avatar} alt={participant.username} className="w-full h-full object-cover" />
+                {currentRoom.participants.map((participant, idx) => {
+                  const isCurrentUserProfile = showUserProfile === participant.username;
+                  const canManageUser = isHost || currentUserRole === 'moderator' || currentUserRole === 'admin' || currentUserRole === 'owner';
+                  const isHostBadge = currentRoom.hostUsername === participant.username;
+                  
+                  return (
+                    <div key={idx} className="relative">
+                      <div 
+                        className="flex items-center gap-2 p-2 border-2 border-foreground bg-card cursor-pointer hover:bg-muted transition-colors"
+                        onClick={() => {
+                          if (participant.username === username) return;
+                          setShowUserProfile(isCurrentUserProfile ? null : participant.username);
+                        }}
+                      >
+                        <div 
+                          className="w-8 h-8 border border-foreground"
+                          style={{ backgroundColor: participant.bgColor || '#2D2D2D' }}
+                        >
+                          <img src={participant.avatar} alt={participant.username} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">{participant.username}</span>
+                            {isHostBadge && <Icon name="Crown" size={10} className="text-yellow-500" />}
+                          </div>
+                          {participant.role === 'moderator' && (
+                            <div className="text-[9px] text-blue-400 font-bold">Mod</div>
+                          )}
+                          {participant.role === 'admin' && (
+                            <div className="text-[9px] text-red-400 font-bold">Adm</div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {isCurrentUserProfile && participant.username !== username && (
+                        <div className="absolute top-full left-0 w-full mt-1 z-50 border-2 border-foreground bg-black p-2 space-y-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs border border-foreground"
+                            onClick={() => {
+                              onUserClick(participant.username);
+                              setShowUserProfile(null);
+                            }}
+                          >
+                            Упомянуть
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs border border-foreground"
+                            onClick={() => {
+                              onUserClick(participant.username);
+                              setShowUserProfile(null);
+                            }}
+                          >
+                            Личное сообщение
+                          </Button>
+                          {canManageUser && (
+                            <Button
+                              size="sm"
+                              className="w-full text-xs border-2 border-foreground bg-orange-600 hover:bg-orange-700 text-white"
+                              onClick={() => {
+                                onManageUser(participant);
+                                setShowUserProfile(null);
+                              }}
+                            >
+                              Управлять
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-xs flex-1">{participant.username}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
@@ -162,14 +239,14 @@ export const RoomView = ({
                 <h2 
                   className="text-2xl font-bold cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
                   onClick={() => {
-                    if (isHost) {
+                    if (canEditBasicInfo) {
                       setTempRoomName(currentRoom.name);
                       setEditingRoomName(true);
                     }
                   }}
                 >
                   {currentRoom.name}
-                  {isHost && (
+                  {canEditBasicInfo && (
                     <Icon name="Pencil" size={16} />
                   )}
                 </h2>
@@ -197,21 +274,21 @@ export const RoomView = ({
                 <p 
                   className="text-sm text-muted-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
                   onClick={() => {
-                    if (isHost) {
+                    if (canEditBasicInfo) {
                       setTempRoomDescription(currentRoom.description || '');
                       setEditingRoomDescription(true);
                     }
                   }}
                 >
                   {currentRoom.description || 'Нет описания'}
-                  {isHost && (
+                  {canEditBasicInfo && (
                     <Icon name="Pencil" size={12} />
                   )}
                 </p>
               )}
               <p className="text-sm text-muted-foreground">
                 {currentRoom.currentParticipants}/{currentRoom.maxParticipants} УЧАСТНИКОВ
-                {isHost && (
+                {canEditBasicInfo && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -224,7 +301,7 @@ export const RoomView = ({
               </p>
             </div>
             <div className="flex gap-2">
-              {isAdmin && (currentRoom?.creatorId === username || isAdmin) && (
+              {canDeleteRoom && (
                 <Button
                   onClick={() => currentRoom && deleteRoom(currentRoom.id)}
                   variant="outline"
@@ -541,10 +618,13 @@ export const RoomView = ({
                   onClick={sendMessage}
                   className="border-2 border-foreground bg-primary hover:bg-primary/80"
                   size="sm"
-                  disabled={pasteBlockActive && pasteCountdown > 0}
+                  disabled={(pasteBlockActive && pasteCountdown > 0) || isMuted}
+                  title={isMuted ? 'Вы замучены' : undefined}
                 >
                   {pasteBlockActive && pasteCountdown > 0 ? (
                     <span>{pasteCountdown}</span>
+                  ) : isMuted ? (
+                    <Icon name="Volume2" size={20} />
                   ) : (
                     <Icon name="Hash" size={20} />
                   )}
