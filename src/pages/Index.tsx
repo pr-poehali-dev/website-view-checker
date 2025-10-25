@@ -81,7 +81,100 @@ const Index = () => {
   const [editingRoomDescription, setEditingRoomDescription] = useState(false);
   const [tempRoomName, setTempRoomName] = useState('');
   const [tempRoomDescription, setTempRoomDescription] = useState('');
+  
+  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+  const [warningTimer, setWarningTimer] = useState<NodeJS.Timeout | null>(null);
+  const [hasBeenWarned, setHasBeenWarned] = useState(false);
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [showKickNotification, setShowKickNotification] = useState(false);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
+  const startInactivityTimer = () => {
+    setHasBeenWarned(false);
+    setLastActivity(Date.now());
+    
+    const timer = setTimeout(() => {
+      setShowInactivityWarning(true);
+      
+      const warnTimer = setTimeout(() => {
+        handleInactivityKick();
+      }, 30000);
+      
+      setWarningTimer(warnTimer);
+    }, 600000);
+    
+    setInactivityTimer(timer);
+  };
+  
+  const resetInactivityTimer = () => {
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer);
+    }
+    if (warningTimer) {
+      clearTimeout(warningTimer);
+    }
+    setShowInactivityWarning(false);
+    
+    if (currentRoom && currentView === 'room') {
+      if (hasBeenWarned) {
+        const timer = setTimeout(() => {
+          handleInactivityKick();
+        }, 600000);
+        setInactivityTimer(timer);
+      } else {
+        startInactivityTimer();
+      }
+    }
+  };
+  
+  const handleInactivityKick = () => {
+    if (!currentRoom) return;
+    
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      user: '',
+      avatar: '',
+      bgColor: '',
+      text: `• ${username} заснул.`,
+      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isSystemMessage: true,
+    };
+    
+    const updatedMessages = [systemMessage, ...messages];
+    if (updatedMessages.length > 30) {
+      updatedMessages.pop();
+    }
+    setMessages(updatedMessages);
+    
+    const updatedRoom = {
+      ...currentRoom,
+      participants: currentRoom.participants.filter(p => p.username !== username),
+      currentParticipants: Math.max(0, currentRoom.currentParticipants - 1)
+    };
+    setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
+    
+    setCurrentView('lobby');
+    setCurrentRoom(null);
+    setShowInactivityWarning(false);
+    setShowKickNotification(true);
+    
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (warningTimer) clearTimeout(warningTimer);
+    
+    setTimeout(() => {
+      setShowKickNotification(false);
+    }, 5000);
+  };
+  
+  const handleStayActive = () => {
+    setShowInactivityWarning(false);
+    setHasBeenWarned(true);
+    if (warningTimer) {
+      clearTimeout(warningTimer);
+    }
+    resetInactivityTimer();
+  };
+  
   const joinRoom = (room: Room) => {
     if (room.bannedUsers.includes(username)) {
       alert('Вы забанены в этой комнате');
@@ -124,6 +217,7 @@ const Index = () => {
     setCurrentRoom(updatedRoom);
     setRooms(rooms.map(r => r.id === room.id ? updatedRoom : r));
     setCurrentView('room');
+    startInactivityTimer();
   };
   
   const handlePasswordSubmit = () => {
@@ -157,6 +251,7 @@ const Index = () => {
       setShowPasswordPrompt(false);
       setPasswordRoom(null);
       setPasswordInput('');
+      startInactivityTimer();
     }
   };
 
@@ -185,6 +280,11 @@ const Index = () => {
       };
       setRooms(rooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
     }
+    
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (warningTimer) clearTimeout(warningTimer);
+    setShowInactivityWarning(false);
+    setHasBeenWarned(false);
     
     setCurrentView('lobby');
     setCurrentRoom(null);
@@ -228,6 +328,7 @@ const Index = () => {
     setShowCreateRoom(false);
     setCurrentRoom(newRoom);
     setCurrentView('room');
+    startInactivityTimer();
   };
   
   const deleteRoom = (roomId: string) => {
@@ -362,6 +463,7 @@ const Index = () => {
       setMessages(updatedMessages);
       setNewMessage('');
       setReplyingTo(null);
+      resetInactivityTimer();
     }
   };
 
@@ -541,6 +643,7 @@ const Index = () => {
           expandRoom={expandRoom}
           updateRoomName={updateRoomName}
           updateRoomDescription={updateRoomDescription}
+          onActivity={resetInactivityTimer}
         />
       ) : null}
 
@@ -573,6 +676,38 @@ const Index = () => {
         onClose={() => setShowCreateRoom(false)}
         onCreate={handleCreateRoom}
       />
+      
+      {showInactivityWarning && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card border-4 border-foreground p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl mb-4 text-center">Вы ещё тут?</h2>
+            <div className="flex justify-center">
+              <Button
+                onClick={handleStayActive}
+                className="border-2 border-foreground bg-primary hover:bg-primary/80"
+              >
+                Да
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showKickNotification && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-card border-4 border-foreground p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg mb-4 text-center">Вас выгнала система за неактивность.</h2>
+            <div className="flex justify-center">
+              <Button
+                onClick={() => setShowKickNotification(false)}
+                className="border-2 border-foreground bg-primary hover:bg-primary/80"
+              >
+                Ок
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

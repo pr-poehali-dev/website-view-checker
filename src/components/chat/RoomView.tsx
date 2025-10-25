@@ -31,6 +31,7 @@ type RoomViewProps = {
   expandRoom: () => void;
   updateRoomName: () => void;
   updateRoomDescription: () => void;
+  onActivity?: () => void;
 };
 
 export const RoomView = ({
@@ -60,10 +61,24 @@ export const RoomView = ({
   expandRoom,
   updateRoomName,
   updateRoomDescription,
+  onActivity,
 }: RoomViewProps) => {
   const isHost = currentRoom.creatorUsername === username;
+  
+  const handleActivity = () => {
+    if (onActivity) {
+      onActivity();
+    }
+  };
+  
   return (
-    <div className="min-h-screen flex bg-black">
+    <div 
+      className="min-h-screen flex bg-black"
+      onClick={handleActivity}
+      onMouseMove={handleActivity}
+      onTouchMove={handleActivity}
+      onKeyDown={handleActivity}
+    >
       <div className="w-64 border-r-4 border-foreground p-6 bg-black">
         <div className="space-y-4">
           <div className="w-full mb-4">
