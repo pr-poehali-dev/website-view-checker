@@ -28,11 +28,6 @@ export const AdminPanel = ({
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [deleteConfirmRoom, setDeleteConfirmRoom] = useState<Room | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const canAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
-
-  if (!canAdmin) return null;
-
   const [editFormData, setEditFormData] = useState({
     name: '',
     theme: 'general' as RoomTheme,
@@ -43,6 +38,10 @@ export const AdminPanel = ({
     is_locked: false,
     password: '',
   });
+
+  const canAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
+
+  if (!canAdmin) return null;
 
   const handleEditRoom = (room: Room) => {
     setEditingRoom(room);
