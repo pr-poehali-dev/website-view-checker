@@ -303,6 +303,18 @@ const Index = () => {
     return true;
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomAvatar(reader.result as string);
+        setUseCustomAvatar(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleLogin = async () => {
     if (username.trim()) {
       setCurrentView('lobby');
@@ -954,16 +966,13 @@ const Index = () => {
           selectedAvatar={selectedAvatar}
           setSelectedAvatar={setSelectedAvatar}
           customAvatar={customAvatar}
-          setCustomAvatar={setCustomAvatar}
           selectedBgColor={selectedBgColor}
           setSelectedBgColor={setSelectedBgColor}
           useCustomAvatar={useCustomAvatar}
           setUseCustomAvatar={setUseCustomAvatar}
+          handleFileUpload={handleFileUpload}
           handleLogin={handleLogin}
-          isAuthenticated={isAuthenticated}
-          currentAccount={currentAccount}
-          onAuthClick={() => setShowAuthModal(true)}
-          onLogout={handleLogout}
+          setShowAuthModal={() => setShowAuthModal(true)}
         />
       )}
 
