@@ -44,6 +44,12 @@ export type Message = {
   isReply?: boolean;
   replyTo?: string;
   isSystemMessage?: boolean;
+  imageUrl?: string;
+};
+
+export type TypingUser = {
+  username: string;
+  lastTyping: number;
 };
 
 export const STANDARD_AVATARS = [

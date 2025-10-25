@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
-import type { Room, Message } from './types';
+import type { Room, Message, TypingUser } from './types';
 
 type RoomViewProps = {
   currentRoom: Room;
@@ -32,6 +33,8 @@ type RoomViewProps = {
   updateRoomName: () => void;
   updateRoomDescription: () => void;
   onActivity?: () => void;
+  typingUsers: TypingUser[];
+  onTyping: () => void;
 };
 
 export const RoomView = ({
@@ -62,8 +65,13 @@ export const RoomView = ({
   updateRoomName,
   updateRoomDescription,
   onActivity,
+  typingUsers,
+  onTyping,
 }: RoomViewProps) => {
   const isHost = currentRoom.creatorUsername === username;
+  const [expandedImages, setExpandedImages] = useState<Set<string>>(new Set());
+  const [showMessageActions, setShowMessageActions] = useState<string | null>(null);
+  const [hiddenMessages, setHiddenMessages] = useState<Set<string>>(new Set());
   
   const handleActivity = () => {
     if (onActivity) {
@@ -217,18 +225,31 @@ export const RoomView = ({
         </div>
 
         <ScrollArea className="flex-1 p-4">
-          <div className="space-y-6 max-w-4xl mx-auto">
-          {messages.map((msg) => (
-            msg.isSystemMessage ? (
-              <div key={msg.id} className="flex justify-center py-2">
-                <div className="text-sm text-muted-foreground italic">
-                  {msg.text}
+          <div className="space-y-4 max-w-4xl mx-auto">
+          {messages.filter(m => !hiddenMessages.has(m.id)).map((msg) => {
+            if (msg.isSystemMessage) {
+              return (
+                <div key={msg.id} className="flex justify-center py-2">
+                  <div className="text-sm text-muted-foreground italic">
+                    {msg.text}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div key={msg.id} className="flex gap-3 group">
+              );
+            }
+            
+            const isOwnMessage = msg.user === username;
+            const textLength = msg.text.length;
+            let bubbleWidth = 'max-w-[50%]';
+            if (textLength > 75) bubbleWidth = 'max-w-[90%]';
+            else if (textLength > 37) bubbleWidth = 'max-w-[75%]';
+            
+            return (
+              <div 
+                key={msg.id} 
+                className={`flex gap-3 group items-start ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+              >
                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <div className="w-16 h-16 border-2 border-foreground relative">
+                  <div className="w-12 h-12 border-2 border-foreground relative">
                     <img src={msg.avatar} alt={msg.user} className="w-full h-full object-cover" />
                   </div>
                   <span className="text-xs">{msg.user}</span>
@@ -256,43 +277,132 @@ export const RoomView = ({
                   )}
                 </div>
 
-                <div className="flex-1 flex flex-col gap-2">
+                <div className={`flex flex-col gap-1 ${bubbleWidth}`}>
                   {msg.isReply && msg.replyTo && (
-                    <div className="text-xs text-cyan-400 italic">
-                      {msg.replyTo} ОПЯТЬ!))))
+                    <div className={`text-xs text-cyan-400 italic ${isOwnMessage ? 'text-right' : 'text-left'}`}>
+                      отвечает на {msg.replyTo.substring(0, 10)}...
                     </div>
                   )}
+                  
                   <div 
-                    className="p-4 text-sm border-2 border-foreground relative"
+                    className="p-3 text-sm border-2 border-foreground relative rounded-lg cursor-pointer"
                     style={{ backgroundColor: msg.bgColor || '#2D2D2D' }}
+                    onClick={() => setShowMessageActions(showMessageActions === msg.id ? null : msg.id)}
                   >
-                    {msg.text}
+                    {msg.imageUrl && (
+                      <div className="mb-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedImages(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(msg.id)) {
+                                newSet.delete(msg.id);
+                              } else {
+                                newSet.add(msg.id);
+                              }
+                              return newSet;
+                            });
+                          }}
+                          className="text-xs border-2 border-foreground"
+                        >
+                          <Icon name="Image" size={14} className="mr-1" />
+                          Изображение
+                        </Button>
+                        {expandedImages.has(msg.id) && (
+                          <div className="mt-2 border-2 border-foreground">
+                            <img src={msg.imageUrl} alt="attachment" className="w-full h-auto" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="break-words">{msg.text}</div>
+                    
+                    <div 
+                      className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-left' : 'text-right'}`}
+                      style={{ fontSize: '0.7em', color: '#888888' }}
+                    >
+                      {msg.timestamp}
+                    </div>
+                    
+                    {showMessageActions === msg.id && (
+                      <div className="absolute bottom-2 right-2 bg-card border-2 border-foreground p-2 z-10 flex flex-col gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReplyingTo(msg);
+                            setShowMessageActions(null);
+                          }}
+                          className="text-xs justify-start"
+                        >
+                          Ответить
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const quote = `«${msg.text}» — ${msg.user}`;
+                            setNewMessage(quote);
+                            setShowMessageActions(null);
+                          }}
+                          className="text-xs justify-start"
+                        >
+                          Цитировать
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHiddenMessages(prev => new Set([...prev, msg.id]));
+                            setShowMessageActions(null);
+                          }}
+                          className="text-xs justify-start"
+                        >
+                          Скрыть
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteMessage(msg.id);
+                              setShowMessageActions(null);
+                            }}
+                            className="text-xs justify-start text-red-500"
+                          >
+                            Удалить
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setReplyingTo(msg)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground"
-                  >
-                    <Icon name="Hash" size={16} />
-                  </Button>
-                  {isAdmin && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteMessage(msg.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity border-2 border-foreground bg-red-900"
-                    >
-                      <Icon name="Trash2" size={16} />
-                    </Button>
-                  )}
-                </div>
               </div>
-            )
-          ))}
+            );
+          })}
+          
+          {typingUsers.filter(tu => tu.username !== username).length > 0 && (
+            <div className="text-sm text-muted-foreground italic mt-4">
+              {(() => {
+                const others = typingUsers.filter(tu => tu.username !== username);
+                if (others.length === 1) {
+                  return `${others[0].username} печатает…`;
+                } else if (others.length === 2) {
+                  return `${others[0].username} и ${others[1].username} печатают…`;
+                } else {
+                  return `${others[0].username} и ещё ${others.length - 1} печатают…`;
+                }
+              })()}
+            </div>
+          )}
         </div>
         </ScrollArea>
 
@@ -317,7 +427,12 @@ export const RoomView = ({
                 </div>
                 <Input
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    if (e.target.value.length >= 9 && !e.target.value.startsWith('/')) {
+                      onTyping();
+                    }
+                  }}
                   placeholder=""
                   className="border-2 border-foreground text-sm flex-1"
                   maxLength={150}

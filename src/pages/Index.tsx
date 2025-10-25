@@ -4,7 +4,7 @@ import { LobbyView } from '@/components/chat/LobbyView';
 import { RoomView } from '@/components/chat/RoomView';
 import { Modals } from '@/components/chat/Modals';
 import { CreateRoomModal } from '@/components/chat/CreateRoomModal';
-import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge } from '@/components/chat/types';
+import type { Room, Message, Account, UserRole, RoomTheme, RoomBadge, TypingUser } from '@/components/chat/types';
 import { STANDARD_AVATARS, BACKGROUND_COLORS } from '@/components/chat/types';
 
 const Index = () => {
@@ -88,6 +88,7 @@ const Index = () => {
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   const [showKickNotification, setShowKickNotification] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   const startInactivityTimer = () => {
     setHasBeenWarned(false);
@@ -130,13 +131,19 @@ const Index = () => {
   const handleInactivityKick = () => {
     if (!currentRoom) return;
     
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
     const systemMessage: Message = {
       id: Date.now().toString(),
       user: '',
       avatar: '',
       bgColor: '',
       text: `• ${username} заснул.`,
-      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       isSystemMessage: true,
     };
     
@@ -191,13 +198,19 @@ const Index = () => {
       return;
     }
     
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
     const systemMessage: Message = {
       id: Date.now().toString(),
       user: '',
       avatar: '',
       bgColor: '',
       text: `${username} в чате.`,
-      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       isSystemMessage: true,
     };
     
@@ -222,13 +235,19 @@ const Index = () => {
   
   const handlePasswordSubmit = () => {
     if (passwordRoom && btoa(passwordInput.toLowerCase()) === passwordRoom.password) {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const seconds = now.getSeconds().toString().padStart(2, '0');
+      const timestamp = `${hours}.${minutes}.${seconds}`;
+      
       const systemMessage: Message = {
         id: Date.now().toString(),
         user: '',
         avatar: '',
         bgColor: '',
         text: `${username} в чате.`,
-        timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        timestamp,
         isSystemMessage: true,
       };
       
@@ -256,13 +275,19 @@ const Index = () => {
   };
 
   const leaveRoom = () => {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
     const systemMessage: Message = {
       id: Date.now().toString(),
       user: '',
       avatar: '',
       bgColor: '',
       text: `${username} покинул чат.`,
-      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       isSystemMessage: true,
     };
     
@@ -335,13 +360,19 @@ const Index = () => {
     const room = rooms.find(r => r.id === roomId);
     if (!room) return;
     
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
     const systemMessage: Message = {
       id: Date.now().toString(),
       user: '',
       avatar: '',
       bgColor: '',
       text: `• админ ${username} удалил комнату.`,
-      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       isSystemMessage: true,
     };
     
@@ -370,13 +401,19 @@ const Index = () => {
     
     setKnockCooldowns({ ...knockCooldowns, [room.id]: now });
     
+    const nowDate = new Date();
+    const hours = nowDate.getHours().toString().padStart(2, '0');
+    const minutes = nowDate.getMinutes().toString().padStart(2, '0');
+    const seconds = nowDate.getSeconds().toString().padStart(2, '0');
+    const timestamp = `${hours}.${minutes}.${seconds}`;
+    
     const knockMessage: Message = {
       id: Date.now().toString(),
       user: '',
       avatar: '',
       bgColor: '',
       text: `• ${username} стучит.`,
-      timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       isSystemMessage: true,
     };
     
@@ -444,15 +481,43 @@ const Index = () => {
     setEditingRoomDescription(false);
   };
 
+  const handleTyping = () => {
+    setTypingUsers(prev => {
+      const existing = prev.find(tu => tu.username === username);
+      if (existing) {
+        return prev.map(tu => 
+          tu.username === username ? { ...tu, lastTyping: Date.now() } : tu
+        );
+      } else {
+        return [...prev, { username, lastTyping: Date.now() }];
+      }
+    });
+  };
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingUsers(prev => 
+        prev.filter(tu => Date.now() - tu.lastTyping < 3000)
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
   const sendMessage = () => {
     if (newMessage.trim()) {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const seconds = now.getSeconds().toString().padStart(2, '0');
+      const timestamp = `${hours}.${minutes}.${seconds}`;
+      
       const message: Message = {
         id: Date.now().toString(),
         user: username,
         avatar: selectedAvatar,
         bgColor: selectedBgColor,
         text: newMessage.slice(0, 150),
-        timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        timestamp,
         isReply: !!replyingTo,
         replyTo: replyingTo ? `@${replyingTo.user}` : undefined,
       };
@@ -463,6 +528,7 @@ const Index = () => {
       setMessages(updatedMessages);
       setNewMessage('');
       setReplyingTo(null);
+      setTypingUsers(prev => prev.filter(tu => tu.username !== username));
       resetInactivityTimer();
     }
   };
@@ -644,6 +710,8 @@ const Index = () => {
           updateRoomName={updateRoomName}
           updateRoomDescription={updateRoomDescription}
           onActivity={resetInactivityTimer}
+          typingUsers={typingUsers}
+          onTyping={handleTyping}
         />
       ) : null}
 
